@@ -44,6 +44,11 @@ export default async function DashboardLayout({
     navItems.push({ name: 'Web Builder', href: '/dashboard/content', icon: '🌐' });
   }
 
+  // Only admins can see school branding settings
+  if (userRole === 'school_admin' || userRole === 'superadmin') {
+    navItems.push({ name: 'Configuración', href: '/dashboard/settings', icon: '⚙️' });
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20">
       {/* Sidebar */}

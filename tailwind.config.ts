@@ -42,6 +42,9 @@ const config: Config = {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
         },
+        // Colores dinámicos del tenant — se inyectan como CSS vars en runtime
+        "tenant-primary": "var(--tenant-primary)",
+        "tenant-secondary": "var(--tenant-secondary)",
       },
       borderRadius: {
         lg: "var(--radius)",

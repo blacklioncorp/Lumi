@@ -1,0 +1,596 @@
+{
+  "name": "03_social_media_publish",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-publish",
+        "authentication": "headerAuth",
+        "headerAuthType": "custom",
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f1",
+      "name": "Receptor de Webhook (Social Publish)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        50,
+        360
+      ],
+      "credentials": {
+        "customAuth": {
+          "id": "lumis_webhook_secret_credentials",
+          "name": "Lumis Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.scheduled_at }}",
+              "operation": "notEmpty"
+            }
+          ]
+        }
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f2",
+      "name": "¿Es Programado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        250,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "resumeMethod": "dateTime",
+        "dateTime": "={{ $json.scheduled_at }}"
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f3",
+      "name": "Esperar Fecha Programada",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        450,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.platforms.includes('facebook') }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f4",
+      "name": "¿FB Seleccionado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.platforms.includes('instagram') }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f5",
+      "name": "¿IG Seleccionado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.platforms.includes('tiktok') }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f6",
+      "name": "¿TikTok Seleccionado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.media_urls && $node[\"Receptor de Webhook (Social Publish)\"].json.content.media_urls.length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f7",
+      "name": "¿Tiene Media (FB)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        880,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.FB_PAGE_ID }}/photos",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.media_urls[0] }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.text }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FB_PAGE_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f8",
+      "name": "Publicar Foto en Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.FB_PAGE_ID }}/feed",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.text }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FB_PAGE_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc4f9",
+      "name": "Publicar Post de Texto en FB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1100,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.IG_USER_ID }}/media",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.media_urls[0] }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $node[\"Receptor de Webhook (Social Publish)\"].json.content.text }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FB_PAGE_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f0",
+      "name": "Crear Contenedor en Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        880,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.IG_USER_ID }}/media_publish",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $env.FB_PAGE_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f1",
+      "name": "Publicar Contenedor en Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1100,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TIKTOK_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "post_info",
+              "value": "={\"title\": \"{{ $node[\\\"Receptor de Webhook (Social Publish)\\\"].json.content.text }}\", \"privacy_level\": \"PUBLIC_TO_EVERYONE\", \"video_cover_timestamp_ms\": 1000}"
+            },
+            {
+              "name": "source_info",
+              "value": "={\"source\": \"FILE_UPLOAD\", \"video_size\": 10000000, \"chunk_size\": 10000000, \"total_chunk_count\": 1}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f2",
+      "name": "Inicializar Publicación en TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        880,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f3",
+      "name": "Combinar FB e IG",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f4",
+      "name": "Combinar con TikTok",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        1550,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://kttrqmudwjiconiwiiqi.supabase.co/rest/v1/social_posts?id=eq.{{ $node[\"Receptor de Webhook (Social Publish)\"].json.post_id }}",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "published"
+            },
+            {
+              "name": "published_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f5",
+      "name": "Actualizar Post a Publicado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1750,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"platforms_published\": \"{{ $node[\"Receptor de Webhook (Social Publish)\"].json.platforms }}\"\n}"
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc5f6",
+      "name": "Responder a Webhook (Social Publish)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1950,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Receptor de Webhook (Social Publish)": {
+      "main": [
+        [
+          {
+            "node": "¿Es Programado?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Programado?": {
+      "main": [
+        [
+          {
+            "node": "Esperar Fecha Programada",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿FB Seleccionado?",
+            "index": 0
+          },
+          {
+            "node": "¿IG Seleccionado?",
+            "index": 0
+          },
+          {
+            "node": "¿TikTok Seleccionado?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar Fecha Programada": {
+      "main": [
+        [
+          {
+            "node": "¿FB Seleccionado?",
+            "index": 0
+          },
+          {
+            "node": "¿IG Seleccionado?",
+            "index": 0
+          },
+          {
+            "node": "¿TikTok Seleccionado?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿FB Seleccionado?": {
+      "main": [
+        [
+          {
+            "node": "¿Tiene Media (FB)?",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combinar FB e IG",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Tiene Media (FB)?": {
+      "main": [
+        [
+          {
+            "node": "Publicar Foto en Facebook",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Publicar Post de Texto en FB",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Foto en Facebook": {
+      "main": [
+        [
+          {
+            "node": "Combinar FB e IG",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Post de Texto en FB": {
+      "main": [
+        [
+          {
+            "node": "Combinar FB e IG",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿IG Seleccionado?": {
+      "main": [
+        [
+          {
+            "node": "Crear Contenedor en Instagram",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combinar FB e IG",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Crear Contenedor en Instagram": {
+      "main": [
+        [
+          {
+            "node": "Publicar Contenedor en Instagram",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Contenedor en Instagram": {
+      "main": [
+        [
+          {
+            "node": "Combinar FB e IG",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combinar FB e IG": {
+      "main": [
+        [
+          {
+            "node": "Combinar con TikTok",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿TikTok Seleccionado?": {
+      "main": [
+        [
+          {
+            "node": "Inicializar Publicación en TikTok",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combinar con TikTok",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Inicializar Publicación en TikTok": {
+      "main": [
+        [
+          {
+            "node": "Combinar con TikTok",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combinar con TikTok": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Post a Publicado",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Post a Publicado": {
+      "main": [
+        [
+          {
+            "node": "Responder a Webhook (Social Publish)",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": {
+    "templateId": "lumis-03-social-media-publish"
+  },
+  "pinData": {}
+}

@@ -122,6 +122,23 @@ export interface Tour {
   updated_at: string;
 }
 
+export interface SocialPost {
+  id: string;
+  tenant_id: string;
+  platforms: string[];
+  content_text: string;
+  media_urls: string[] | null;
+  media_type: 'image' | 'video' | null;
+  status: 'pending' | 'published' | 'failed' | 'scheduled';
+  scheduled_at: string | null;
+  published_at: string | null;
+  n8n_job_id: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Database schema representation for Supabase types
 export interface Database {
   public: {
@@ -178,6 +195,16 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Tour>;
+      };
+      social_posts: {
+        Row: SocialPost;
+        Insert: Omit<SocialPost, 'id' | 'status' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          status?: 'pending' | 'published' | 'failed' | 'scheduled';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<SocialPost>;
       };
     };
     Views: {};

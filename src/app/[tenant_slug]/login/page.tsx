@@ -1,116 +1,69 @@
-'use client';
+import { getTenantFromHeaders } from '@/lib/tenant';
+import { createClient } from '@/lib/supabase/server';
+import { notFound } from 'next/navigation';
+import Image from 'next/image';
+import LoginForm from './login-form';
 
-import React, { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import Link from 'next/link';
+export default async function TenantLoginPage({
+  params,
+}: {
+  params: { tenant_slug: string };
+}) {
+  const { tenant } = getTenantFromHeaders();
 
-export default function TenantLoginPage() {
-  const params = useParams();
-  const router = useRouter();
-  const tenantSlug = params?.tenant_slug as string;
+  if (!tenant || tenant.slug !== params.tenant_slug) {
+    notFound();
+  }
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
+  // We need to fetch active_modules to know if SSO is enabled,
+  // since the middleware doesn't inject the full array into headers.
   const supabase = createClient();
+  const { data: tenantData } = await supabase
+    .from('tenants')
+    .select('active_modules')
+    .eq('id', tenant.id)
+    .single();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      // Authenticate with Supabase
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      // Redirect to dashboard on successful login
-      router.push('/dashboard');
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || 'Credenciales inválidas. Inténtalo de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const activeModules: string[] = (tenantData as { active_modules: string[] } | null)?.active_modules || [];
+  const isGoogleSsoEnabled = activeModules.includes('google_sso');
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-6 py-12">
-      <div className="w-full max-w-md space-y-8 bg-card border border-border p-8 rounded-2xl shadow-xl">
-        <div className="text-center">
-          <Link href="/" className="inline-block">
-            <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-xl mx-auto shadow-md"
-              style={{ backgroundColor: 'var(--primary)' }}
-            >
-              {tenantSlug?.substring(0, 2).toUpperCase()}
-            </div>
-          </Link>
-          <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-foreground">
-            Portal Institucional
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Ingresa a tu cuenta de <span className="font-semibold uppercase">{tenantSlug}</span>
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-semibold">Correo Electrónico</label>
-            <input
-              type="email"
-              id="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-              placeholder="ejemplo@colegio.edu.mx"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label htmlFor="password" className="text-sm font-semibold">Contraseña</label>
-              <a href="#" className="text-xs text-primary hover:underline">¿Olvidaste tu contraseña?</a>
-            </div>
-            <input
-              type="password"
-              id="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 font-semibold text-white rounded-lg shadow-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ backgroundColor: 'var(--primary)' }}
+    <div
+      className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8"
+      style={{ backgroundColor: `${tenant.primary_color}10` }} // Light background based on primary color
+    >
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        {tenant.logo_url ? (
+          <Image
+            className="mx-auto h-24 w-auto object-contain"
+            src={tenant.logo_url!}
+            alt={tenant.name}
+            width={200}
+            height={96}
+          />
+        ) : (
+          <div
+            className="mx-auto h-24 w-24 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-lg"
+            style={{ backgroundColor: tenant.primary_color }}
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </button>
-        </form>
+            {tenant.name.charAt(0)}
+          </div>
+        )}
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          Iniciar sesión
+        </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Bienvenido a {tenant.name}
+        </p>
+      </div>
 
-        <div className="text-center text-xs text-muted-foreground mt-4">
-          ¿No tienes acceso? Contacta a la administración de tu plantel.
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 border-t-4" style={{ borderColor: tenant.secondary_color }}>
+          <LoginForm
+            tenantSlug={tenant.slug}
+            isGoogleSsoEnabled={isGoogleSsoEnabled}
+            primaryColor={tenant.primary_color}
+          />
         </div>
       </div>
     </div>

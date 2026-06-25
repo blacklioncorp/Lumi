@@ -1,157 +1,72 @@
-import React from 'react';
-import { getTenantFromHeaders } from '@/lib/tenant';
-import Link from 'next/link';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { ContentBlock } from '@/types/database';
+import { TenantConfig } from '@/types/tenant';
+import Navbar from './_components/Navbar';
+import HeroSection from './_components/HeroSection';
+import StatsBar from './_components/StatsBar';
+import EducationLevels from './_components/EducationLevels';
+import WhyUs from './_components/WhyUs';
+import Gallery from './_components/Gallery';
+import Testimonials from './_components/Testimonials';
+import LeadForm from './_components/LeadForm';
+import LocationSection from './_components/LocationSection';
+import Footer from './_components/Footer';
 
-export default function TenantHomePage() {
-  const { tenant } = getTenantFromHeaders();
+export default async function TenantPublicPage() {
+  const headersList = headers();
 
-  if (!tenant) return null;
+  // Leer la configuración del tenant inyectada por el middleware
+  const config: TenantConfig = {
+    id:              headersList.get('x-tenant-id')      || '',
+    name:            headersList.get('x-tenant-name')    || 'Colegio',
+    slug:            headersList.get('x-tenant-slug')    || '',
+    logo_url:        headersList.get('x-tenant-logo-url') || null,
+    primary_color:   headersList.get('x-tenant-primary-color')   || '#1E40AF',
+    secondary_color: headersList.get('x-tenant-secondary-color') || '#F59E0B',
+    active_modules:  [],   // se carga desde Supabase
+    timezone:        'America/Mexico_City',
+  };
+
+  // Un único fetch a Supabase para content_blocks + active_modules del tenant
+  const supabase = createClient();
+
+  const [blocksResult, tenantResult] = await Promise.all([
+    supabase
+      .from('content_blocks')
+      .select('*')
+      .eq('tenant_id', config.id)
+      .eq('page', 'home')
+      .eq('published', true)
+      .order('order_index', { ascending: true }),
+    supabase
+      .from('tenants')
+      .select('active_modules, timezone')
+      .eq('id', config.id)
+      .single(),
+  ]);
+
+  const blocks: ContentBlock[] = (blocksResult.data || []) as ContentBlock[];
+
+  type TenantRow = { active_modules: string[]; timezone: string };
+  const tenantRow = tenantResult.data as TenantRow | null;
+  if (tenantRow) {
+    config.active_modules = tenantRow.active_modules || [];
+    config.timezone       = tenantRow.timezone || 'America/Mexico_City';
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Navigation */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {tenant.logo_url ? (
-              <img src={tenant.logo_url} alt={tenant.name} className="h-8 w-auto object-contain" />
-            ) : (
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: 'var(--primary)' }}>
-                {tenant.name.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="font-semibold text-lg tracking-tight">{tenant.name}</span>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link href="/about" className="hover:text-primary transition-colors">Nosotros</Link>
-            <Link href="/admissions" className="hover:text-primary transition-colors">Admisiones</Link>
-            <Link href="/contact" className="hover:text-primary transition-colors">Contacto</Link>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <Link 
-              href="/login" 
-              className="text-sm font-medium hover:text-primary transition-colors"
-            >
-              Portal Institucional
-            </Link>
-            <Link 
-              href="/contact" 
-              className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-all hover:opacity-90 shadow-md"
-              style={{ backgroundColor: 'var(--primary)' }}
-            >
-              Agendar Visita
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <main className="flex-1">
-        <section className="relative overflow-hidden py-24 md:py-32">
-          {/* Subtle decorative background circles */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-10 blur-3xl pointer-events-none" style={{ backgroundColor: 'var(--primary)' }} />
-          <div className="absolute top-1/3 right-10 w-[300px] h-[300px] rounded-full opacity-10 blur-3xl pointer-events-none" style={{ backgroundColor: 'var(--secondary)' }} />
-
-          <div className="max-w-7xl mx-auto px-6 relative z-10 grid md:grid-cols-2 gap-12 items-center">
-            <div className="flex flex-col gap-6 text-left">
-              <span 
-                className="self-start px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full"
-                style={{ backgroundColor: 'var(--secondary)', color: 'var(--primary)' }}
-              >
-                Admisiones Abiertas
-              </span>
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-                Forjando a los líderes del mañana
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-xl">
-                En {tenant.name} combinamos excelencia académica, valores éticos y el desarrollo de competencias tecnológicas de vanguardia para brindar una educación del más alto nivel en México.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 mt-2">
-                <Link 
-                  href="/contact" 
-                  className="px-6 py-3 font-semibold text-white rounded-lg text-center transition-all hover:opacity-90 shadow-lg"
-                  style={{ backgroundColor: 'var(--primary)' }}
-                >
-                  Conoce Nuestra Oferta
-                </Link>
-                <Link 
-                  href="/about" 
-                  className="px-6 py-3 font-semibold border border-border rounded-lg text-center bg-card hover:bg-accent transition-colors"
-                >
-                  Sobre Nosotros
-                </Link>
-              </div>
-            </div>
-
-            {/* Visual Frame */}
-            <div className="relative aspect-video md:aspect-square w-full bg-muted/40 rounded-2xl border border-border shadow-2xl flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-transparent" />
-              <div className="flex flex-col items-center gap-2 text-center p-6">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg" style={{ backgroundColor: 'var(--primary)' }}>
-                  {tenant.name.substring(0, 1).toUpperCase()}
-                </div>
-                <h3 className="font-bold text-xl mt-2">{tenant.name}</h3>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Educación Integral de Excelencia</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Core Values / Pillar Section */}
-        <section className="py-20 border-t border-border bg-card/20">
-          <div className="max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Nuestros Pilares Educativos</h2>
-            <p className="text-muted-foreground mt-2 max-w-lg mx-auto">Diseñados para incentivar el desarrollo cognitivo, emocional y social de nuestros alumnos.</p>
-
-            <div className="grid md:grid-cols-3 gap-8 mt-12">
-              <div className="p-8 rounded-xl border border-border bg-card/60 backdrop-blur-sm flex flex-col items-start text-left hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white mb-6 font-bold" style={{ backgroundColor: 'var(--primary)' }}>
-                  A
-                </div>
-                <h3 className="font-bold text-lg">Excelencia Académica</h3>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                  Programas educativos modernos alineados a estándares internacionales con enfoque bilingüe y crítico.
-                </p>
-              </div>
-
-              <div className="p-8 rounded-xl border border-border bg-card/60 backdrop-blur-sm flex flex-col items-start text-left hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white mb-6 font-bold" style={{ backgroundColor: 'var(--secondary)' }}>
-                  B
-                </div>
-                <h3 className="font-bold text-lg">Tecnología & Innovación</h3>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                  Acceso a laboratorios digitales, robótica y desarrollo de pensamiento lógico-matemático.
-                </p>
-              </div>
-
-              <div className="p-8 rounded-xl border border-border bg-card/60 backdrop-blur-sm flex flex-col items-start text-left hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white mb-6 font-bold" style={{ backgroundColor: 'var(--primary)' }}>
-                  C
-                </div>
-                <h3 className="font-bold text-lg">Formación en Valores</h3>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                  Fomentamos la empatía, el respeto, la responsabilidad y el liderazgo en comunidad.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-12 bg-card/40">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} {tenant.name}. Todos los derechos reservados.
-          </p>
-          <div className="flex gap-6 text-sm text-muted-foreground">
-            <Link href="/privacy" className="hover:underline">Aviso de Privacidad</Link>
-            <Link href="/terms" className="hover:underline">Términos de Servicio</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
+    <main className="min-h-screen">
+      <Navbar config={config} blocks={blocks} />
+      <HeroSection config={config} blocks={blocks} />
+      <StatsBar config={config} blocks={blocks} />
+      <EducationLevels config={config} blocks={blocks} />
+      <WhyUs config={config} blocks={blocks} />
+      <Gallery config={config} blocks={blocks} />
+      <Testimonials config={config} blocks={blocks} />
+      <LeadForm config={config} blocks={blocks} />
+      <LocationSection config={config} blocks={blocks} />
+      <Footer config={config} blocks={blocks} />
+    </main>
   );
 }

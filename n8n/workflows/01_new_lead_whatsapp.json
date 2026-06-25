@@ -1,0 +1,360 @@
+{
+  "name": "01_new_lead_whatsapp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "authentication": "headerAuth",
+        "headerAuthType": "custom",
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc2f2",
+      "name": "Receptor de Webhook (New Lead)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "credentials": {
+        "customAuth": {
+          "id": "lumis_webhook_secret_credentials",
+          "name": "Lumis Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.whatsapp_enabled }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2d8a8b14-c8c7-4589-a29d-4be9693bc2f3",
+      "name": "¿WhatsApp Habilitado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.lead.whatsapp }}"
+            },
+            {
+              "name": "type",
+              "value": "template"
+            },
+            {
+              "name": "template",
+              "value": "={ \"name\": \"lead_welcome\", \"language\": { \"code\": \"es_MX\" }, \"components\": [ { \"type\": \"body\", \"parameters\": [ { \"type\": \"text\", \"text\": \"{{ $json.lead.full_name }}\" }, { \"type\": \"text\", \"text\": \"{{ $json.tenant_name }}\" } ] } ] }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d8a8b14-c8c7-4589-a29d-4be9693bc2f4",
+      "name": "Enviar WhatsApp (Template Bienvenida)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "minutes"
+      },
+      "id": "4d8a8b14-c8c7-4589-a29d-4be9693bc2f5",
+      "name": "Esperar 30 Minutos",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://kttrqmudwjiconiwiiqi.supabase.co/rest/v1/leads?id=eq.{{ $node[\"Receptor de Webhook (New Lead)\"].json.lead.id }}",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d8a8b14-c8c7-4589-a29d-4be9693bc2f6",
+      "name": "Consultar Estado en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json[0]?.status }}",
+              "value2": "new"
+            }
+          ]
+        }
+      },
+      "id": "6d8a8b14-c8c7-4589-a29d-4be9693bc2f7",
+      "name": "¿Sigue en Estado Nuevo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $node[\"Receptor de Webhook (New Lead)\"].json.lead.whatsapp }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={\"body\": \"Hola {{ $node[\\\"Receptor de Webhook (New Lead)\\\"].json.lead.full_name }}, somos del {{ $node[\\\"Receptor de Webhook (New Lead)\\\"].json.tenant_name }}. ¿Te gustaría agendar una visita a nuestras instalaciones? Tenemos horarios disponibles esta semana 🏫\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7d8a8b14-c8c7-4589-a29d-4be9693bc2f8",
+      "name": "Enviar WhatsApp (Seguimiento)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1420,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://kttrqmudwjiconiwiiqi.supabase.co/rest/v1/leads?id=eq.{{ $node[\"Receptor de Webhook (New Lead)\"].json.lead.id }}",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "contacted"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8d8a8b14-c8c7-4589-a29d-4be9693bc2f9",
+      "name": "Actualizar Lead a Contactado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1640,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": true}"
+      },
+      "id": "9d8a8b14-c8c7-4589-a29d-4be9693bc3f0",
+      "name": "Responder a Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1860,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Receptor de Webhook (New Lead)": {
+      "main": [
+        [
+          {
+            "node": "¿WhatsApp Habilitado?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿WhatsApp Habilitado?": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Template Bienvenida)",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder a Webhook",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp (Template Bienvenida)": {
+      "main": [
+        [
+          {
+            "node": "Esperar 30 Minutos",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 30 Minutos": {
+      "main": [
+        [
+          {
+            "node": "Consultar Estado en Supabase",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Estado en Supabase": {
+      "main": [
+        [
+          {
+            "node": "¿Sigue en Estado Nuevo?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Sigue en Estado Nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Seguimiento)",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder a Webhook",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp (Seguimiento)": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Lead a Contactado",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Lead a Contactado": {
+      "main": [
+        [
+          {
+            "node": "Responder a Webhook",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": {
+    "templateId": "lumis-01-new-lead-whatsapp"
+  },
+  "pinData": {}
+}

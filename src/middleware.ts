@@ -3,6 +3,26 @@ import type { NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { getTenantFromHostname } from '@/lib/tenant';
 
+/**
+ * Función ultra-ligera para parsear el JWT en el Edge Runtime sin dependencias
+ */
+function parseJwtEdge(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -17,16 +37,35 @@ export async function middleware(request: NextRequest) {
   }
 
   // 1. Update/Refresh Supabase Session
-  const { supabase, supabaseResponse, user } = await updateSession(request);
+  const { supabase, supabaseResponse, user, session } = await updateSession(request);
 
-  // 2. Resolve Tenant
+  // 2. Extraer role y tenant_id del JWT sin tocar BD
+  let userRole = 'anon';
+  let userTenantId = null;
+
+  if (session?.access_token) {
+    const jwt = parseJwtEdge(session.access_token);
+    userRole = jwt?.user_role || 'parent';
+    userTenantId = jwt?.tenant_id || null;
+  }
+
+  // 3. Resolve Tenant (by hostname)
   const host = request.headers.get('host') || '';
   const { tenant, isCustomDomain } = await getTenantFromHostname(host, supabase);
 
-  // Clone headers from original response to preserve cookies
+  // 4. Protección estricta de rutas de Superadmin (Nivel Global)
+  if (pathname.startsWith('/superadmin')) {
+    if (userRole !== 'superadmin') {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    // Si es superadmin, le permitimos pasar a sus rutas, sin reescribir tenant
+    return supabaseResponse;
+  }
+
+  // Clonar headers para inyectar contexto
   const requestHeaders = new Headers(request.headers);
 
-  // If a tenant is resolved, inject its branding and ID to request headers
+  // 5. Flujo con Tenant Resuelto
   if (tenant) {
     requestHeaders.set('x-tenant-id', tenant.id);
     requestHeaders.set('x-tenant-slug', tenant.slug);
@@ -38,42 +77,58 @@ export async function middleware(request: NextRequest) {
       requestHeaders.set('x-tenant-logo-url', tenant.logo_url);
     }
 
-    // 3. Routing & Path Rewriting for Tenants
-    // If the path is /login, we let it pass. If they are already logged in, redirect to /dashboard
+    // A. Rutas de Login
     if (pathname === '/login') {
       if (user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        // Redirección inteligente si ya está logueado
+        if (userRole === 'superadmin') return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+        if (userRole === 'school_admin' || userRole === 'editor') return NextResponse.redirect(new URL('/dashboard', request.url));
+        return NextResponse.redirect(new URL('/portal', request.url));
       }
-      // Rewrite to tenant login page internally
+      
       const url = request.nextUrl.clone();
       url.pathname = `/${tenant.slug}/login`;
-      return NextResponse.rewrite(url, {
-        request: {
-          headers: requestHeaders,
-        },
-      });
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
     }
 
-    // Check if the route is a dashboard route and needs authentication
-    const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/tours') || pathname.startsWith('/leads') || pathname.startsWith('/students') || pathname.startsWith('/content');
-    
-    if (isDashboardRoute && !user) {
-      // Redirect to login page
-      return NextResponse.redirect(new URL('/login', request.url));
+    // B. Protección de Rutas Internas del Tenant
+    const isDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/tours') || pathname.startsWith('/leads') || pathname.startsWith('/students') || pathname.startsWith('/content');
+    const isPortal = pathname.startsWith('/portal');
+
+    if (isDashboard || isPortal) {
+      // B1. Debe estar logueado
+      if (!user) {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+      
+      // B2. Aislamiento Multi-Tenant (Security Audit)
+      // Si el usuario pertenece a un colegio distinto al del dominio actual, bloquear.
+      if (userRole !== 'superadmin' && userTenantId !== tenant.id) {
+        // Se redirige a login con error de acceso cruzado
+        return NextResponse.redirect(new URL('/login?error=unauthorized_tenant', request.url));
+      }
+
+      // B3. Verificación de Roles por Área
+      if (isDashboard && !['school_admin', 'editor', 'superadmin'].includes(userRole)) {
+        return NextResponse.redirect(new URL('/portal', request.url));
+      }
+
+      if (isPortal && !['parent', 'student', 'superadmin'].includes(userRole)) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
     }
 
-    // Rewrite request internally to `/[tenant_slug]/original_path`
+    // C. Reescribir ruta para App Router
     const url = request.nextUrl.clone();
     url.pathname = `/${tenant.slug}${url.pathname}`;
 
-    // Return rewritten URL with inject headers and updated cookies
     const rewriteResponse = NextResponse.rewrite(url, {
       request: {
         headers: requestHeaders,
       },
     });
 
-    // Copy cookies from updateSession response to the rewriteResponse
+    // Mantener cookies sincronizadas
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       rewriteResponse.cookies.set(cookie.name, cookie.value, cookie);
     });
@@ -81,21 +136,18 @@ export async function middleware(request: NextRequest) {
     return rewriteResponse;
   }
 
-  // 4. Root App (Lumis Landing Page) routing
-  // If we are on the root domain, but trying to access dashboard paths, redirect to root login or block
-  if (pathname.startsWith('/dashboard') && !user) {
+  // 6. Flujo sin Tenant (Raíz del SaaS Lumis)
+  // Si no hay tenant y el usuario intenta entrar a rutas protegidas
+  const isProtectedRoot = pathname.startsWith('/dashboard') || pathname.startsWith('/portal');
+  if (isProtectedRoot && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Return original response
   return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths except static files or api/auth
-     */
     '/((?!_next/static|_next/image|favicon.ico|api/auth).*)',
   ],
 };

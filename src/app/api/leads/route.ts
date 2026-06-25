@@ -1,96 +1,127 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+/**
+ * POST /api/leads
+ * Acepta campos en snake_case (formulario público) o camelCase (integración interna).
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const {
-      tenantSlug,
-      fullName,
-      email,
-      phone,
-      whatsapp,
-      childrenCount,
-      levelInterest,
-      source,
-      notes,
-    } = body;
+
+    // Normalizar: el formulario público envía snake_case
+    const tenantSlug    = (body.tenant_slug     ?? body.tenantSlug)     as string | undefined;
+    const fullName      = (body.full_name        ?? body.fullName)       as string | undefined;
+    const email         = (body.email            ?? null)                as string | null;
+    const phone         = (body.phone            ?? null)                as string | null;
+    const whatsapp      = (body.whatsapp         ?? null)                as string | null;
+    const childrenCount = (body.children_count   ?? body.childrenCount   ?? 1) as number;
+    const levelInterest = (body.level_interest   ?? body.levelInterest   ?? null) as string | null;
+    const source        = (body.source           ?? 'web')              as string;
+    const notes         = (body.notes            ?? null)                as string | null;
 
     if (!tenantSlug || !fullName) {
       return NextResponse.json(
-        { error: 'Missing tenantSlug or fullName' },
+        { error: 'Se requieren tenant_slug y full_name' },
         { status: 400 }
       );
     }
 
     const supabaseAdmin = createAdminClient();
 
-    // 1. Resolve Tenant ID by slug
+    // 1. Resolver el tenant por slug
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tenant, error: tenantError } = await (supabaseAdmin as any)
       .from('tenants')
-      .select('id, name')
+      .select('id, name, slug, active_modules')
       .eq('slug', tenantSlug)
       .eq('is_active', true)
       .maybeSingle();
 
     if (tenantError || !tenant) {
       return NextResponse.json(
-        { error: 'Tenant not found or inactive' },
+        { error: 'Colegio no encontrado o inactivo' },
         { status: 404 }
       );
     }
 
-    // 2. Insert Lead
+    // 2. Insertar lead
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: lead, error: leadError } = await (supabaseAdmin as any)
       .from('leads')
       .insert({
-        tenant_id: tenant.id,
-        full_name: fullName,
-        email,
-        phone,
-        whatsapp,
-        children_count: childrenCount || 1,
+        tenant_id:      tenant.id,
+        full_name:      fullName,
+        email:          email,
+        phone:          phone,
+        whatsapp:       whatsapp,
+        children_count: childrenCount,
         level_interest: levelInterest,
-        source: source || 'web',
-        status: 'new',
-        notes,
+        source:         source,
+        status:         'new',
+        notes:          notes,
       })
       .select()
       .single();
 
     if (leadError) {
-      console.error('Database error inserting lead:', leadError);
+      console.error('Error insertando lead:', leadError);
       return NextResponse.json(
-        { error: 'Error saving lead details to database' },
+        { error: 'Error guardando el registro en la base de datos' },
         { status: 500 }
       );
     }
 
-    // 3. (Optional) Trigger n8n Automation Webhook
-    // If n8n webhooks are configured, we could dispatch to them asynchronously here.
-    const n8nWebhookUrl = process.env.N8N_LEAD_WEBHOOK_URL;
+    // 3. Notificación asíncrona a n8n (fire-and-forget)
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_LEAD_URL;
     if (n8nWebhookUrl) {
-      try {
-        fetch(n8nWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'lead.created',
-            tenant: { id: tenant.id, name: tenant.name },
-            lead,
-          }),
-        }).catch((err) => console.error('Failed to trigger n8n webhook:', err));
-      } catch (webhookErr) {
-        console.error('Error dispatching webhook:', webhookErr);
+      let activeModules: string[] = [];
+      if (tenant.active_modules) {
+        if (Array.isArray(tenant.active_modules)) {
+          activeModules = tenant.active_modules;
+        } else if (typeof tenant.active_modules === 'string') {
+          try {
+            activeModules = JSON.parse(tenant.active_modules);
+          } catch {
+            activeModules = [];
+          }
+        }
       }
+      const whatsapp_enabled = activeModules.includes('whatsapp');
+      const webhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
+
+      const payload = {
+        event: 'new_lead',
+        tenant_id: tenant.id,
+        tenant_slug: tenant.slug,
+        tenant_name: tenant.name,
+        lead: {
+          id: lead.id,
+          full_name: lead.full_name,
+          whatsapp: lead.whatsapp || '',
+          email: lead.email,
+          level_interest: lead.level_interest || '',
+          children_count: Number(lead.children_count),
+          source: lead.source
+        },
+        whatsapp_enabled,
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(n8nWebhookUrl, {
+        method:  'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(webhookSecret ? { 'x-lumis-secret': webhookSecret } : {})
+        },
+        body:    JSON.stringify(payload),
+      }).catch((err) => console.error('Error disparando webhook n8n:', err));
     }
 
     return NextResponse.json({ success: true, leadId: lead.id }, { status: 201 });
-  } catch (error: any) {
-    console.error('API Error in leads creation:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error en /api/leads:', message);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

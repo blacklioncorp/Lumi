@@ -1,0 +1,348 @@
+{
+  "name": "02_tour_google_calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-tour",
+        "authentication": "headerAuth",
+        "headerAuthType": "custom",
+        "options": {}
+      },
+      "id": "1d8a8b14-c8c7-4589-a29d-4be9693bc3f1",
+      "name": "Receptor de Webhook (Tour Scheduled)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "credentials": {
+        "customAuth": {
+          "id": "lumis_webhook_secret_credentials",
+          "name": "Lumis Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.google_calendar_enabled }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2d8a8b14-c8c7-4589-a29d-4be9693bc3f2",
+      "name": "¿Google Calendar Habilitado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ $env.GOOGLE_CALENDAR_ID || 'primary' }}/events",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GOOGLE_CALENDAR_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "summary",
+              "value": "=Tour Colegio — {{ $json.lead.full_name }}"
+            },
+            {
+              "name": "description",
+              "value": "=Prospecto: {{ $json.lead.full_name }}\nWhatsApp: {{ $json.lead.whatsapp }}\nNivel de interés: {{ $json.lead.level_interest || 'N/A' }}"
+            },
+            {
+              "name": "start",
+              "value": "={ \"dateTime\": \"{{ $json.scheduled_at }}\", \"timeZone\": \"America/Mexico_City\" }"
+            },
+            {
+              "name": "end",
+              "value": "={ \"dateTime\": \"{{ new Date(new Date($json.scheduled_at).getTime() + $json.duration_minutes * 60000).toISOString() }}\", \"timeZone\": \"America/Mexico_City\" }"
+            },
+            {
+              "name": "attendees",
+              "value": "= [ { \"email\": \"{{ $json.lead.email || '' }}\" } ]"
+            },
+            {
+              "name": "reminders",
+              "value": "={ \"useDefault\": false, \"overrides\": [ { \"method\": \"email\", \"minutes\": 1440 }, { \"method\": \"popup\", \"minutes\": 60 } ] }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d8a8b14-c8c7-4589-a29d-4be9693bc3f3",
+      "name": "Crear Evento en Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://kttrqmudwjiconiwiiqi.supabase.co/rest/v1/tours?id=eq.{{ $node[\"Receptor de Webhook (Tour Scheduled)\"].json.tour_id }}",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "google_event_id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d8a8b14-c8c7-4589-a29d-4be9693bc3f4",
+      "name": "Actualizar Tour en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $node[\"Receptor de Webhook (Tour Scheduled)\"].json.lead.whatsapp }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={\"body\": \"¡Hola {{ $node[\\\"Receptor de Webhook (Tour Scheduled)\\\"].json.lead.full_name }}! Tu visita al {{ $node[\\\"Receptor de Webhook (Tour Scheduled)\\\"].json.tenant_name }} está confirmada para el {{ $node[\\\"Receptor de Webhook (Tour Scheduled)\\\"].json.scheduled_at_formatted }}. ¡Te esperamos! 🎉\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d8a8b14-c8c7-4589-a29d-4be9693bc3f5",
+      "name": "Enviar WhatsApp (Confirmación)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resumeMethod": "dateTime",
+        "dateTime": "={{ new Date(new Date($node[\"Receptor de Webhook (Tour Scheduled)\"].json.scheduled_at).getTime() - 24 * 60 * 60 * 1000).toISOString() }}"
+      },
+      "id": "6d8a8b14-c8c7-4589-a29d-4be9693bc3f6",
+      "name": "Esperar Hasta 24h Antes del Tour",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "sendHeaders": true,
+        "specifyHeaders": true,
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $node[\"Receptor de Webhook (Tour Scheduled)\"].json.lead.whatsapp }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={\"body\": \"Recordatorio: mañana tienes tu visita al {{ $node[\\\"Receptor de Webhook (Tour Scheduled)\\\"].json.tenant_name }} agendada para el {{ $node[\\\"Receptor de Webhook (Tour Scheduled)\\\"].json.scheduled_at_formatted }}. ¡Te esperamos! 🏫\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7d8a8b14-c8c7-4589-a29d-4be9693bc3f7",
+      "name": "Enviar WhatsApp (Recordatorio)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1420,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"google_event_id\": \"{{ $node[\"Crear Evento en Google Calendar\"].json.id || '' }}\"\n}"
+      },
+      "id": "8d8a8b14-c8c7-4589-a29d-4be9693bc3f8",
+      "name": "Responder a Webhook (Tour Agendado)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Receptor de Webhook (Tour Scheduled)": {
+      "main": [
+        [
+          {
+            "node": "¿Google Calendar Habilitado?",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Google Calendar Habilitado?": {
+      "main": [
+        [
+          {
+            "node": "Crear Evento en Google Calendar",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder a Webhook (Tour Agendado)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Evento en Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Tour en Supabase",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Tour en Supabase": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Confirmación)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp (Confirmación)": {
+      "main": [
+        [
+          {
+            "node": "Esperar Hasta 24h Antes del Tour",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar Hasta 24h Antes del Tour": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Recordatorio)",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp (Recordatorio)": {
+      "main": [
+        [
+          {
+            "node": "Responder a Webhook (Tour Agendado)",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": {
+    "templateId": "lumis-02-tour-google-calendar"
+  },
+  "pinData": {}
+}
