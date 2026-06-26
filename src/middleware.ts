@@ -66,7 +66,28 @@ export async function middleware(request: NextRequest) {
 
   // 3. Resolve Tenant (by hostname or path slug)
   const pathSegments = pathname.split('/').filter(Boolean);
-  const pathSlug = pathSegments[0] || undefined;
+  let pathSlug = pathSegments[0] || undefined;
+
+  // Si el path es una API y estamos en el dominio raíz, intentamos resolver el slug del tenant usando el Referer
+  if ((pathname.startsWith('/api/') || pathname.startsWith('/auth/')) && isRootDomain) {
+    const referer = request.headers.get('referer');
+    if (referer) {
+      try {
+        const refererUrl = new URL(referer);
+        const cleanRefererHost = refererUrl.host.split(':')[0].toLowerCase();
+        if (cleanRefererHost === cleanRoot) {
+          const refererSegments = refererUrl.pathname.split('/').filter(Boolean);
+          const potentialSlug = refererSegments[0];
+          // Excluir palabras clave reservadas
+          if (potentialSlug && !['api', 'login', 'superadmin', 'auth'].includes(potentialSlug)) {
+            pathSlug = potentialSlug;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing referer in middleware:', e);
+      }
+    }
+  }
 
   const { tenant, isCustomDomain } = await getTenantFromHostname(
     host,
@@ -99,6 +120,20 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-tenant-secondary-color', tenant.secondary_color);
     if (tenant.logo_url) {
       requestHeaders.set('x-tenant-logo-url', encodeURIComponent(tenant.logo_url));
+    }
+
+    // Para cualquier endpoint de API o autenticación, procedemos con cabeceras pero SIN reescribir ni redireccionar
+    if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
+      const apiResponse = NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+      // Mantener cookies sincronizadas
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        apiResponse.cookies.set(cookie.name, cookie.value, cookie);
+      });
+      return apiResponse;
     }
 
     // Calcular el prefijo de redirección dinámico (evita loops y reescrituras incorrectas)
