@@ -2,6 +2,11 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { ContentBlock } from '@/types/database';
 import { TenantConfig } from '@/types/tenant';
+
+// Siempre hacer fetch fresco — nunca servir datos cacheados del build
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 import Navbar from './_components/Navbar';
 import HeroSection from './_components/HeroSection';
 import StatsBar from './_components/StatsBar';

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withTenantGuard } from '@/lib/auth';
 
@@ -23,5 +24,13 @@ export const POST = withTenantGuard(async (request, _context) => {
   }
 
   const count = data ? data.length : 0;
+
+  // Revalidar la landing pública para que los cambios sean visibles de inmediato
+  const tenantSlug = request.headers.get('x-tenant-slug');
+  if (tenantSlug) {
+    revalidatePath(`/${tenantSlug}`);
+    revalidatePath(`/${tenantSlug}/dashboard/content`);
+  }
+
   return NextResponse.json({ success: true, count });
 });

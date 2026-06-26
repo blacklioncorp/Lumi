@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withTenantGuard } from '@/lib/auth';
 
@@ -64,6 +65,12 @@ export const PATCH = withTenantGuard(async (request, _context) => {
       { error: 'Fallo al actualizar el orden de algunos bloques.' },
       { status: 500 }
     );
+  }
+
+  // Revalidar la landing pública para reflejar el nuevo orden de secciones
+  const tenantSlug = request.headers.get('x-tenant-slug');
+  if (tenantSlug) {
+    revalidatePath(`/${tenantSlug}`);
   }
 
   return NextResponse.json({ success: true });

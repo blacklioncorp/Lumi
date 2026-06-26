@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withTenantGuard } from '@/lib/auth';
 
@@ -143,6 +144,13 @@ export const PATCH = withTenantGuard(async (request, _context) => {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Revalidar la landing pública y el panel CMS
+  const tenantSlug = request.headers.get('x-tenant-slug');
+  if (tenantSlug) {
+    revalidatePath(`/${tenantSlug}`);
+    revalidatePath(`/${tenantSlug}/dashboard/content`);
+  }
+
   return NextResponse.json(updatedBlock);
 });
 
@@ -211,6 +219,13 @@ export const POST = withTenantGuard(async (request, _context) => {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // Revalidar la landing pública
+  const tenantSlug = request.headers.get('x-tenant-slug');
+  if (tenantSlug) {
+    revalidatePath(`/${tenantSlug}`);
+    revalidatePath(`/${tenantSlug}/dashboard/content`);
+  }
+
   return NextResponse.json(newBlock, { status: 201 });
 });
 
@@ -252,6 +267,13 @@ export const DELETE = withTenantGuard(async (request, _context) => {
   if (deleteError) {
     console.error('Error eliminando bloque:', deleteError);
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  // Revalidar la landing pública
+  const tenantSlug = request.headers.get('x-tenant-slug');
+  if (tenantSlug) {
+    revalidatePath(`/${tenantSlug}`);
+    revalidatePath(`/${tenantSlug}/dashboard/content`);
   }
 
   return NextResponse.json({ success: true });
