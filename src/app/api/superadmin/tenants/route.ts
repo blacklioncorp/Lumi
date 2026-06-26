@@ -192,21 +192,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const host = request.headers.get('host') || 'localhost:3000';
-    const cleanHost = host.split(':')[0].toLowerCase();
-    const cleanRoot = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000').split(':')[0].toLowerCase();
-    const isRoot = cleanHost === cleanRoot;
-
-    // Return urls for landing & dashboard
-    const landingUrl = isRoot ? `http://${slug}.${cleanRoot}` : `http://${slug}.lumi-delta-sooty.vercel.app`;
-    const dashboardUrl = `${landingUrl}/dashboard`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lumi-delta-sooty.vercel.app';
 
     return NextResponse.json({
       tenant,
       user_id: authUser.user.id,
       urls: {
-        landing: landingUrl,
-        dashboard: dashboardUrl
+        landing: `${baseUrl}/${tenant.slug}`,
+        dashboard: `${baseUrl}/${tenant.slug}/dashboard`,
+        login: `${baseUrl}/${tenant.slug}/login`
       }
     });
   } catch (err) {

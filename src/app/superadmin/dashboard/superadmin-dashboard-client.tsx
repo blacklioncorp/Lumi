@@ -430,9 +430,10 @@ export default function SuperadminDashboardClient({
                   const visibleModules = modules.slice(0, maxVisible);
                   const moreCount = modules.length - maxVisible;
 
+                  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lumi-delta-sooty.vercel.app';
                   const landingUrl = t.custom_domain 
-                    ? `http://${t.custom_domain}` 
-                    : `http://${t.slug}.lumi-delta-sooty.vercel.app`; // Fallback placeholder domain
+                    ? `https://${t.custom_domain}` 
+                    : `${appUrl}/${t.slug}`;
 
                   return (
                     <tr key={t.id} className="hover:bg-slate-50/30 transition-colors">
@@ -655,7 +656,7 @@ export default function SuperadminDashboardClient({
                         className="mt-1 rounded-xl"
                       />
                       <span className="text-[10px] text-slate-400 mt-1 block">
-                        Preview: <strong className="text-slate-600">lumi-delta-sooty.vercel.app/{schoolSlug || 'slug'}</strong>
+                        Preview: <strong className="text-slate-600">{(process.env.NEXT_PUBLIC_APP_URL || 'https://lumi-delta-sooty.vercel.app').replace(/^https?:\/\//i, '')}/{schoolSlug || 'slug'}</strong>
                       </span>
                     </div>
                   </div>
