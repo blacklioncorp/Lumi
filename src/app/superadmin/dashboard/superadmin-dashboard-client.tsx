@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { MODULES_BY_PLAN } from '@/lib/modules';
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,18 @@ export default function SuperadminDashboardClient({
   const [isNewSchoolOpen, setIsNewSchoolOpen] = useState(false);
   const [isModulesOpen, setIsModulesOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<TenantWithStats | null>(null);
+  const [localPlan, setLocalPlan] = useState<'basic' | 'intermediate' | 'premium'>('basic');
+
+  // Edit School Modal states
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editTenant, setEditTenant] = useState<TenantWithStats | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPlan, setEditPlan] = useState<'basic' | 'intermediate' | 'premium'>('basic');
+  const [editPrimaryColor, setEditPrimaryColor] = useState('#1E40AF');
+  const [editSecondaryColor, setEditSecondaryColor] = useState('#F59E0B');
+  const [editCustomDomain, setEditCustomDomain] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editLoading, setEditLoading] = useState(false);
 
   // New School Wizard Form states
   const [step, setStep] = useState(1);
@@ -245,6 +258,7 @@ export default function SuperadminDashboardClient({
   // Modules Dialog controls
   const openModulesManager = (tenant: TenantWithStats) => {
     setSelectedTenant(tenant);
+    setLocalPlan(tenant.plan);
     setLocalModules(tenant.active_modules || []);
     setIsModulesOpen(true);
   };
@@ -260,6 +274,19 @@ export default function SuperadminDashboardClient({
     setModulesLoading(true);
 
     try {
+      // 1. Si el plan cambió, guardamos el plan en tenants/{id}
+      if (localPlan !== selectedTenant.plan) {
+        const planRes = await fetch(`/api/superadmin/tenants/${selectedTenant.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: localPlan }),
+        });
+        if (!planRes.ok) {
+          throw new Error('Error al actualizar el plan');
+        }
+      }
+
+      // 2. Guardamos los módulos en tenants/{id}/modules
       const response = await fetch(`/api/superadmin/tenants/${selectedTenant.id}/modules`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -270,23 +297,82 @@ export default function SuperadminDashboardClient({
         throw new Error('Error al actualizar módulos');
       }
 
-      toast.success('Módulos actualizados exitosamente.');
+      const planNameMap = {
+        basic: 'Basic',
+        intermediate: 'Intermediate',
+        premium: 'Premium'
+      };
+
+      if (localPlan !== selectedTenant.plan) {
+        toast.success(`Plan actualizado a ${planNameMap[localPlan]}. Módulos sincronizados.`);
+      } else {
+        toast.success('Módulos actualizados exitosamente.');
+      }
+      
       setIsModulesOpen(false);
       fetchTenantsAndStats();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('No se pudo guardar la configuración de módulos.');
+      toast.error(err.message || 'No se pudo guardar la configuración de módulos.');
     } finally {
       setModulesLoading(false);
     }
   };
 
-  // Check module tier locking rules
+  // Edit School Modal handlers
+  const openEditModal = (tenant: TenantWithStats) => {
+    setEditTenant(tenant);
+    setEditName(tenant.name);
+    setEditPlan(tenant.plan);
+    setEditPrimaryColor(tenant.primary_color || '#1E40AF');
+    setEditSecondaryColor(tenant.secondary_color || '#F59E0B');
+    setEditCustomDomain(tenant.custom_domain || '');
+    setEditIsActive(tenant.is_active);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTenant) return;
+    if (!editName) {
+      toast.error('El nombre del colegio es requerido.');
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${editTenant.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName,
+          plan: editPlan,
+          primary_color: editPrimaryColor,
+          secondary_color: editSecondaryColor,
+          custom_domain: editCustomDomain || null,
+          is_active: editIsActive,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al actualizar el colegio');
+      }
+
+      toast.success('Colegio actualizado correctamente.');
+      setIsEditOpen(false);
+      fetchTenantsAndStats();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'No se pudo actualizar el colegio.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Check module tier locking rules — uses localPlan so locks update reactively when plan selector changes
   const isModuleLocked = (moduleTier: string) => {
-    if (!selectedTenant) return true;
-    const plan = selectedTenant.plan;
-    if (moduleTier === 'premium' && plan !== 'premium') return true;
-    if (moduleTier === 'intermediate' && plan === 'basic') return true;
+    if (moduleTier === 'premium' && localPlan !== 'premium') return true;
+    if (moduleTier === 'intermediate' && localPlan === 'basic') return true;
     return false;
   };
 
@@ -500,10 +586,18 @@ export default function SuperadminDashboardClient({
                           variant="outline"
                           size="xs"
                           onClick={() => openModulesManager(t)}
-                          className="rounded-lg h-7.5 px-2.5 flex items-center gap-1"
+                          className="rounded-lg h-7.5 px-2.5 inline-flex items-center gap-1"
                         >
                           <Puzzle className="h-3.5 w-3.5" />
                           <span>Módulos</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => openEditModal(t)}
+                          className="rounded-lg h-7.5 px-2.5 inline-flex items-center gap-1"
+                        >
+                          <span>Editar</span>
                         </Button>
                         <a
                           href={landingUrl}
@@ -917,17 +1011,35 @@ export default function SuperadminDashboardClient({
 
           {selectedTenant && (
             <div className="space-y-6 py-2">
-              {/* College and Plan Info header */}
-              <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">{selectedTenant.name}</h4>
-                  <p className="text-xs text-slate-500">Plan de Cobro: <span className="uppercase font-bold text-indigo-600">{selectedTenant.plan}</span></p>
+              {/* College and Plan Selector header */}
+              <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-slate-900">{selectedTenant.name}</h4>
+                    <p className="text-xs text-slate-500">Selecciona el plan para desbloquear módulos</p>
+                  </div>
+                  {localPlan !== selectedTenant.plan && (
+                    <Badge className="px-2 py-1 text-[10px] font-bold bg-amber-100 text-amber-700 border-amber-200">
+                      Plan modificado
+                    </Badge>
+                  )}
                 </div>
-                {selectedTenant.plan !== 'premium' && (
-                  <Badge variant="secondary" className="px-2 py-1 text-[10px] font-bold text-slate-600">
-                    Cambiar plan requiere actualización
-                  </Badge>
-                )}
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Plan actual</Label>
+                  <select
+                    value={localPlan}
+                    onChange={(e) => {
+                      const newPlan = e.target.value as 'basic' | 'intermediate' | 'premium';
+                      setLocalPlan(newPlan);
+                      setLocalModules([...MODULES_BY_PLAN[newPlan as keyof typeof MODULES_BY_PLAN]]);
+                    }}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-colors"
+                  >
+                    <option value="basic">Basic — $800 MXN/mes</option>
+                    <option value="intermediate">Intermediate — $2,500 MXN/mes</option>
+                    <option value="premium">Premium — $6,000 MXN/mes</option>
+                  </select>
+                </div>
               </div>
 
               {/* Modules Grouped Categories */}
@@ -959,7 +1071,7 @@ export default function SuperadminDashboardClient({
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between border-b pb-1.5">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Módulos Plan Intermediate</span>
-                    {selectedTenant.plan === 'basic' && (
+                    {localPlan === 'basic' && (
                       <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">Bloqueados</span>
                     )}
                   </div>
@@ -991,7 +1103,7 @@ export default function SuperadminDashboardClient({
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between border-b pb-1.5">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Módulos Plan Premium</span>
-                    {selectedTenant.plan !== 'premium' && (
+                    {localPlan !== 'premium' && (
                       <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">Bloqueados</span>
                     )}
                   </div>
@@ -1032,6 +1144,131 @@ export default function SuperadminDashboardClient({
               className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium flex items-center gap-1.5"
             >
               {modulesLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                'Guardar cambios'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: EDITAR COLEGIO */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => { if (!open && !editLoading) setIsEditOpen(false); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Building2 className="h-5 w-5 text-slate-600" />
+              <span>Editar Colegio</span>
+            </DialogTitle>
+            <DialogDescription>
+              Modifica la información y configuración del colegio.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editTenant && (
+            <div className="space-y-4 py-2">
+              <div>
+                <Label htmlFor="edit-name" className="font-semibold text-slate-700">Nombre del Colegio *</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-1 rounded-xl"
+                  placeholder="Colegio Quetzal de México"
+                />
+              </div>
+
+              <div>
+                <Label className="font-semibold text-slate-700 block mb-1.5">Plan de Facturación</Label>
+                <select
+                  value={editPlan}
+                  onChange={(e) => setEditPlan(e.target.value as 'basic' | 'intermediate' | 'premium')}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-colors"
+                >
+                  <option value="basic">Basic — $800 MXN/mes</option>
+                  <option value="intermediate">Intermediate — $2,500 MXN/mes</option>
+                  <option value="premium">Premium — $6,000 MXN/mes</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="edit-primary" className="font-semibold text-slate-700">Color Primario</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      id="edit-primary"
+                      value={editPrimaryColor}
+                      onChange={(e) => setEditPrimaryColor(e.target.value)}
+                      className="h-9 w-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                    />
+                    <Input
+                      value={editPrimaryColor}
+                      onChange={(e) => setEditPrimaryColor(e.target.value)}
+                      className="rounded-xl font-mono text-sm"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="edit-secondary" className="font-semibold text-slate-700">Color Secundario</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      id="edit-secondary"
+                      value={editSecondaryColor}
+                      onChange={(e) => setEditSecondaryColor(e.target.value)}
+                      className="h-9 w-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                    />
+                    <Input
+                      value={editSecondaryColor}
+                      onChange={(e) => setEditSecondaryColor(e.target.value)}
+                      className="rounded-xl font-mono text-sm"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-domain" className="font-semibold text-slate-700">Dominio Personalizado</Label>
+                <Input
+                  id="edit-domain"
+                  value={editCustomDomain}
+                  onChange={(e) => setEditCustomDomain(e.target.value)}
+                  className="mt-1 rounded-xl"
+                  placeholder="colegio.edu.mx (opcional)"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <p className="font-semibold text-slate-800 text-sm">Estado del colegio</p>
+                  <p className="text-xs text-slate-500">{editIsActive ? 'Activo — visible y funcional' : 'Inactivo — acceso bloqueado'}</p>
+                </div>
+                <Switch
+                  id="edit-active"
+                  checked={editIsActive}
+                  onCheckedChange={setEditIsActive}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-slate-100 pt-4 mt-4">
+            <DialogClose render={<Button variant="outline" disabled={editLoading} onClick={() => setIsEditOpen(false)} />}>
+              Cancelar
+            </DialogClose>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={editLoading}
+              className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium flex items-center gap-1.5"
+            >
+              {editLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Guardando...</span>

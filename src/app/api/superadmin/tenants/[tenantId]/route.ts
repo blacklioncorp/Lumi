@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+import { MODULES_BY_PLAN } from '@/lib/modules';
+
 async function verifySuperAdmin(supabase: any) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) return false;
@@ -38,7 +40,12 @@ export async function PATCH(
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
-    if (plan !== undefined) updateData.plan = plan;
+    if (plan !== undefined) {
+      updateData.plan = plan;
+      if (plan === 'basic' || plan === 'intermediate' || plan === 'premium') {
+        updateData.active_modules = MODULES_BY_PLAN[plan as keyof typeof MODULES_BY_PLAN];
+      }
+    }
     if (primary_color !== undefined) updateData.primary_color = primary_color;
     if (secondary_color !== undefined) updateData.secondary_color = secondary_color;
     if (custom_domain !== undefined) updateData.custom_domain = custom_domain || null;

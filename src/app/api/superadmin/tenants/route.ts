@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { MODULES_BY_PLAN } from '@/lib/modules';
 
 // Verify superadmin role helper
 async function verifySuperAdmin(supabase: any) {
@@ -104,18 +105,8 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 2. Set default active modules based on plan (analytics added to Basic per Note 2)
-    let active_modules: string[] = [];
-    if (plan === 'basic') {
-      active_modules = ['crm', 'website', 'whatsapp', 'google_calendar', 'analytics'];
-    } else if (plan === 'intermediate') {
-      active_modules = ['crm', 'website', 'whatsapp', 'google_calendar', 'analytics', 'social_media', 'google_sso'];
-    } else if (plan === 'premium') {
-      active_modules = [
-        'crm', 'website', 'whatsapp', 'google_calendar', 'social_media', 'analytics',
-        'google_sso', 'payments', 'parent_portal', 'pwa', 'nfc_access', 'safelunch'
-      ];
-    }
+    // 2. Set default active modules based on plan using shared MODULES_BY_PLAN
+    const active_modules = MODULES_BY_PLAN[plan as 'basic' | 'intermediate' | 'premium'] || [];
 
     // 3. Insert tenant record
     const { data: tenant, error: tenantError } = await supabaseAdmin
