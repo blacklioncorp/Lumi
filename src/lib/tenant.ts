@@ -15,14 +15,27 @@ export interface ResolvedTenant {
  */
 export async function getTenantFromHostname(
   hostname: string,
-  supabase: SupabaseClient<Database>
+  supabase: SupabaseClient<Database>,
+  pathSlug?: string
 ): Promise<ResolvedTenant> {
   // Normalize hostname (remove port and lowercase)
   const cleanHost = hostname.split(':')[0].toLowerCase();
   const cleanRoot = ROOT_DOMAIN.split(':')[0].toLowerCase();
 
-  // If the host is exactly the root domain, there is no tenant (it's the main landing page of Lumis)
   if (cleanHost === cleanRoot) {
+    // Si hay slug en el path, intentar resolver por slug
+    if (pathSlug) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('slug', pathSlug)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (tenant) {
+        return { tenant, isCustomDomain: false, slug: pathSlug };
+      }
+    }
     return { tenant: null, isCustomDomain: false, slug: null };
   }
 

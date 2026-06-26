@@ -49,9 +49,16 @@ export async function middleware(request: NextRequest) {
     userTenantId = jwt?.tenant_id || null;
   }
 
-  // 3. Resolve Tenant (by hostname)
+  // 3. Resolve Tenant (by hostname or path slug)
   const host = request.headers.get('host') || '';
-  const { tenant, isCustomDomain } = await getTenantFromHostname(host, supabase);
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const pathSlug = pathSegments[0] || undefined;
+
+  const { tenant, isCustomDomain } = await getTenantFromHostname(
+    host,
+    supabase,
+    pathSlug
+  );
 
   // 4. Protección estricta de rutas de Superadmin (Nivel Global)
   if (pathname.startsWith('/superadmin')) {
@@ -120,7 +127,9 @@ export async function middleware(request: NextRequest) {
 
     // C. Reescribir ruta para App Router
     const url = request.nextUrl.clone();
-    url.pathname = `/${tenant.slug}${url.pathname}`;
+    if (!pathname.startsWith(`/${tenant.slug}`)) {
+      url.pathname = `/${tenant.slug}${url.pathname}`;
+    }
 
     const rewriteResponse = NextResponse.rewrite(url, {
       request: {
