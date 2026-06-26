@@ -11,7 +11,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
   params: { tenant_slug: string };
 }) {
-  const { tenant } = getTenantFromHeaders();
+  const { tenant, isCustomDomain } = getTenantFromHeaders();
   if (!tenant) return redirect('/');
 
   const supabase = createClient();
@@ -31,22 +31,24 @@ export default async function DashboardLayout({
   const userRole = profile?.role || 'parent';
   const fullName = profile?.full_name || user.email?.split('@')[0] || 'Usuario';
 
+  const prefix = isCustomDomain ? '' : `/${tenant.slug}`;
+
   // Navigation items based on role
   const navItems = [
-    { name: 'Inicio', href: '/dashboard', icon: '📊' },
-    { name: 'Prospectos (CRM)', href: '/dashboard/leads', icon: '👥' },
-    { name: 'Alumnos', href: '/dashboard/students', icon: '🎓' },
-    { name: 'Calendario Visitas', href: '/dashboard/tours', icon: '📅' },
+    { name: 'Dashboard', href: `${prefix}/dashboard`, icon: '📊' },
+    { name: 'Leads', href: `${prefix}/dashboard/leads`, icon: '👥' },
+    { name: 'Alumnos', href: `${prefix}/dashboard/students`, icon: '🎓' },
+    { name: 'Tours', href: `${prefix}/dashboard/tours`, icon: '📅' },
   ];
 
   // Editors and admins can manage content blocks
   if (userRole === 'school_admin' || userRole === 'editor' || userRole === 'superadmin') {
-    navItems.push({ name: 'Web Builder', href: '/dashboard/content', icon: '🌐' });
+    navItems.push({ name: 'Contenido', href: `${prefix}/dashboard/content`, icon: '🌐' });
   }
 
   // Only admins can see school branding settings
   if (userRole === 'school_admin' || userRole === 'superadmin') {
-    navItems.push({ name: 'Configuración', href: '/dashboard/settings', icon: '⚙️' });
+    navItems.push({ name: 'Configuración', href: `${prefix}/dashboard/settings`, icon: '⚙️' });
   }
 
   return (
@@ -117,7 +119,7 @@ export default async function DashboardLayout({
 
           <div className="flex items-center gap-4">
             <Link 
-              href="/" 
+              href={prefix || '/'} 
               target="_blank" 
               className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
             >

@@ -26,22 +26,70 @@ export default function LoginForm({
   const supabase = createClient();
   const router = useRouter();
 
+  const getRedirectPrefix = () => {
+    if (typeof window === 'undefined') return `/${_tenantSlug}`;
+    const pathname = window.location.pathname;
+    if (pathname.startsWith(`/${_tenantSlug}`)) {
+      return `/${_tenantSlug}`;
+    }
+    return '';
+  };
+
   const handleEmailPasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      setError('Credenciales inválidas. Por favor, verifica tu correo y contraseña.');
+      let errorMsg = 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.';
+      if (error.message.includes('Invalid login credentials')) {
+        errorMsg = 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMsg = 'El correo electrónico no ha sido verificado.';
+      } else {
+        errorMsg = error.message;
+      }
+      setError(errorMsg);
       setLoading(false);
     } else {
-      router.refresh(); // Middleware will redirect based on role
+      const userId = authData.user?.id;
+      if (userId) {
+        try {
+          const { data, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .maybeSingle();
+
+          const userData = data as { role: string } | null;
+
+          if (!userError && userData) {
+            const role = userData.role;
+            const redirectPrefix = getRedirectPrefix();
+            
+            if (role === 'superadmin' || role === 'school_admin' || role === 'editor') {
+              router.push(`${redirectPrefix}/dashboard`);
+            } else {
+              router.push(`${redirectPrefix}/portal`);
+            }
+            router.refresh();
+            return;
+          }
+        } catch (err) {
+          console.error('Error fetching user role:', err);
+        }
+      }
+
+      // Fallback
+      const redirectPrefix = getRedirectPrefix();
+      router.push(`${redirectPrefix}/dashboard`);
+      router.refresh();
     }
   };
 

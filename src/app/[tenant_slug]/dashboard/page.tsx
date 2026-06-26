@@ -1,12 +1,14 @@
 import React from 'react';
 import { getTenantFromHeaders } from '@/lib/tenant';
 import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 
 export default async function DashboardPage() {
-  const { tenant } = getTenantFromHeaders();
+  const { tenant, isCustomDomain } = getTenantFromHeaders();
 
   if (!tenant) return null;
 
+  const prefix = isCustomDomain ? '' : `/${tenant.slug}`;
   const supabase = createClient();
   let stats = {
     total_leads: 0,
@@ -23,16 +25,13 @@ export default async function DashboardPage() {
     });
 
     if (!error && data) {
-      stats = data as any;
-    } else {
-      // Fallback/mock data for initial startup if functions are not deployed yet
       stats = {
-        total_leads: 48,
-        new_leads: 12,
-        active_students: 312,
-        upcoming_tours: 6,
-        total_users: 14,
-        conversion_rate: 22.4,
+        total_leads: Number(data.total_leads) || 0,
+        new_leads: Number(data.new_leads) || 0,
+        active_students: Number(data.active_students) || 0,
+        upcoming_tours: Number(data.upcoming_tours) || 0,
+        total_users: Number(data.total_users) || 0,
+        conversion_rate: Number(data.conversion_rate) || 0,
       };
     }
   } catch (err) {
@@ -106,27 +105,27 @@ export default async function DashboardPage() {
         <div className="bg-card border border-border p-6 rounded-xl shadow-sm lg:col-span-1 space-y-4">
           <h3 className="font-bold text-lg">Accesos Rápidos</h3>
           <div className="flex flex-col gap-2">
-            <a 
-              href="/dashboard/leads" 
+            <Link 
+              href={`${prefix}/dashboard/leads`} 
               className="p-3 text-sm font-medium border border-border rounded-lg bg-muted/40 hover:bg-muted transition-colors flex items-center justify-between"
             >
               <span>Registrar Nuevo Lead</span>
               <span className="text-primary font-semibold">→</span>
-            </a>
-            <a 
-              href="/dashboard/tours" 
+            </Link>
+            <Link 
+              href={`${prefix}/dashboard/tours`} 
               className="p-3 text-sm font-medium border border-border rounded-lg bg-muted/40 hover:bg-muted transition-colors flex items-center justify-between"
             >
               <span>Programar Visita</span>
               <span className="text-primary font-semibold">→</span>
-            </a>
-            <a 
-              href="/dashboard/content" 
+            </Link>
+            <Link 
+              href={`${prefix}/dashboard/content`} 
               className="p-3 text-sm font-medium border border-border rounded-lg bg-muted/40 hover:bg-muted transition-colors flex items-center justify-between"
             >
               <span>Editar Contenido Web</span>
               <span className="text-primary font-semibold">→</span>
-            </a>
+            </Link>
           </div>
         </div>
 

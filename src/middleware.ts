@@ -84,48 +84,65 @@ export async function middleware(request: NextRequest) {
       requestHeaders.set('x-tenant-logo-url', encodeURIComponent(tenant.logo_url));
     }
 
+    // Calcular el prefijo de redirección dinámico (evita loops y reescrituras incorrectas)
+    const redirectPrefix = isCustomDomain ? '' : `/${tenant.slug}`;
+
+    // Extraer el pathname limpio sin el prefijo del slug para verificar rutas
+    const pathWithoutSlug = pathname.replace(new RegExp(`^\\/${tenant.slug}`), '') || '/';
+
     // A. Rutas de Login
-    if (pathname === '/login') {
+    if (pathWithoutSlug === '/login') {
       if (user) {
         // Redirección inteligente si ya está logueado
-        if (userRole === 'superadmin') return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
-        if (userRole === 'school_admin' || userRole === 'editor') return NextResponse.redirect(new URL('/dashboard', request.url));
-        return NextResponse.redirect(new URL('/portal', request.url));
+        if (userRole === 'superadmin') {
+          return NextResponse.redirect(new URL(`${redirectPrefix}/dashboard`, request.url));
+        }
+        if (userRole === 'school_admin' || userRole === 'editor') {
+          return NextResponse.redirect(new URL(`${redirectPrefix}/dashboard`, request.url));
+        }
+        return NextResponse.redirect(new URL(`${redirectPrefix}/portal`, request.url));
       }
       
-      const url = request.nextUrl.clone();
-      url.pathname = `/${tenant.slug}/login`;
-      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+      // Si el usuario no está logueado pero el path es exactamente "/login" (sin slug), reescribir al path del login del tenant
+      if (pathname === '/login') {
+        const url = request.nextUrl.clone();
+        url.pathname = `/${tenant.slug}/login`;
+        return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+      }
     }
 
     // B. Protección de Rutas Internas del Tenant
-    const isDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/tours') || pathname.startsWith('/leads') || pathname.startsWith('/students') || pathname.startsWith('/content');
-    const isPortal = pathname.startsWith('/portal');
+    const isDashboard = pathWithoutSlug.startsWith('/dashboard') || 
+                        pathWithoutSlug.startsWith('/tours') || 
+                        pathWithoutSlug.startsWith('/leads') || 
+                        pathWithoutSlug.startsWith('/students') || 
+                        pathWithoutSlug.startsWith('/content');
+    const isPortal = pathWithoutSlug.startsWith('/portal');
 
     if (isDashboard || isPortal) {
       // B1. Debe estar logueado
       if (!user) {
-        return NextResponse.redirect(new URL('/login', request.url));
+        return NextResponse.redirect(new URL(`${redirectPrefix}/login`, request.url));
       }
       
       // B2. Aislamiento Multi-Tenant (Security Audit)
       // Si el usuario pertenece a un colegio distinto al del dominio actual, bloquear.
       if (userRole !== 'superadmin' && userTenantId !== tenant.id) {
         // Se redirige a login con error de acceso cruzado
-        return NextResponse.redirect(new URL('/login?error=unauthorized_tenant', request.url));
+        return NextResponse.redirect(new URL(`${redirectPrefix}/login?error=unauthorized_tenant`, request.url));
       }
 
       // B3. Verificación de Roles por Área
       if (isDashboard && !['school_admin', 'editor', 'superadmin'].includes(userRole)) {
-        return NextResponse.redirect(new URL('/portal', request.url));
+        return NextResponse.redirect(new URL(`${redirectPrefix}/portal`, request.url));
       }
 
       if (isPortal && !['parent', 'student', 'superadmin'].includes(userRole)) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        return NextResponse.redirect(new URL(`${redirectPrefix}/dashboard`, request.url));
       }
     }
 
-    // C. Reescribir ruta para App Router
+    // C. Reescribir ruta para App Router (si no tiene ya el slug)
     const url = request.nextUrl.clone();
     if (!pathname.startsWith(`/${tenant.slug}`)) {
       url.pathname = `/${tenant.slug}${url.pathname}`;
