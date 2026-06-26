@@ -49,8 +49,22 @@ export async function middleware(request: NextRequest) {
     userTenantId = jwt?.tenant_id || null;
   }
 
-  // 3. Resolve Tenant (by hostname or path slug)
+  // 2.1 Excluir la ruta /login del flujo de tenant si es la raíz del SaaS
   const host = request.headers.get('host') || '';
+  const cleanHost = host.split(':')[0].toLowerCase();
+  const cleanRoot = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000').split(':')[0].toLowerCase();
+  const isRootDomain = cleanHost === cleanRoot;
+
+  if (pathname === '/login' && isRootDomain) {
+    if (user) {
+      if (userRole === 'superadmin') {
+        return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+      }
+    }
+    return supabaseResponse;
+  }
+
+  // 3. Resolve Tenant (by hostname or path slug)
   const pathSegments = pathname.split('/').filter(Boolean);
   const pathSlug = pathSegments[0] || undefined;
 
@@ -62,8 +76,11 @@ export async function middleware(request: NextRequest) {
 
   // 4. Protección estricta de rutas de Superadmin (Nivel Global)
   if (pathname.startsWith('/superadmin')) {
-    if (userRole !== 'superadmin') {
+    if (!user) {
       return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (userRole !== 'superadmin') {
+      return NextResponse.redirect(new URL('/', request.url));
     }
     // Si es superadmin, le permitimos pasar a sus rutas, sin reescribir tenant
     return supabaseResponse;

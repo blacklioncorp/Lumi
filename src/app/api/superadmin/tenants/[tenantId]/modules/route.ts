@@ -50,10 +50,10 @@ export async function PATCH(
 
     // 2. Parse payload
     const body = await request.json();
-    const { active_modules } = body;
+    const active_modules = body.active_modules || body.modules;
 
     if (!Array.isArray(active_modules)) {
-      return NextResponse.json({ error: 'active_modules debe ser un arreglo' }, { status: 400 });
+      return NextResponse.json({ error: 'active_modules o modules debe ser un arreglo' }, { status: 400 });
     }
 
     // 3. Update en BD usando el cliente autenticado

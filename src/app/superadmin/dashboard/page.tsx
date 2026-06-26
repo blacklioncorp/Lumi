@@ -1,75 +1,72 @@
-import { createClient } from '@/lib/supabase/server';
+import React from 'react';
 import { requireRole } from '@/lib/auth';
-import { Tenant } from '@/types/database';
-import ModulesToggle from './modules-toggle';
-import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/server';
+import SuperadminDashboardClient from './superadmin-dashboard-client';
 
 export const metadata = {
   title: 'Superadmin Dashboard | Lumis',
 };
 
 export default async function SuperadminDashboardPage() {
-  // Proteger ruta a nivel componente
+  // Protect page level using requireRole
   await requireRole(['superadmin']);
 
   const supabase = createClient();
-  const { data: tenants, error } = await supabase
+
+  // Fetch tenants along with lead and student counts
+  const { data: tenantsData, error } = await supabase
     .from('tenants')
-    .select('*')
+    .select('*, leads:leads(id), students:students(id, status)')
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching tenants:', error);
+    console.error('Error fetching tenants list:', error);
   }
 
+  const tenants = (tenantsData || []).map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    custom_domain: t.custom_domain,
+    plan: t.plan,
+    active_modules: t.active_modules,
+    logo_url: t.logo_url,
+    primary_color: t.primary_color,
+    secondary_color: t.secondary_color,
+    is_active: t.is_active,
+    created_at: t.created_at,
+    leads_count: t.leads?.length || 0,
+    students_count: t.students?.filter((s: any) => s.status === 'active').length || 0
+  }));
+
+  // Fetch platform-wide counts of leads and active students
+  const { count: totalLeads } = await supabase
+    .from('leads')
+    .select('*', { count: 'exact', head: true });
+
+  const { count: totalStudents } = await supabase
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active');
+
+  const activeTenants = tenants.filter((t) => t.is_active);
+  
+  let mrr = 0;
+  activeTenants.forEach((t) => {
+    if (t.plan === 'basic') mrr += 800;
+    else if (t.plan === 'intermediate') mrr += 2500;
+    else if (t.plan === 'premium') mrr += 6000;
+  });
+
+  const stats = {
+    total_tenants: tenants.length,
+    active_tenants: activeTenants.length,
+    mrr,
+    total_leads: totalLeads || 0,
+    total_students: totalStudents || 0,
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Superadmin</h1>
-          <p className="text-sm text-gray-500">Gestión de Colegios (Tenants) en Lumis</p>
-        </div>
-        <Button>+ Nuevo Colegio</Button>
-      </div>
-
-      <div className="space-y-8">
-        {tenants?.map((tenant: Tenant) => (
-          <div key={tenant.id} className="bg-white border rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">{tenant.name}</h2>
-                <p className="text-sm text-gray-500">
-                  Slug: {tenant.slug} | Plan: <span className="uppercase font-medium">{tenant.plan}</span>
-                </p>
-              </div>
-              <div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    tenant.is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {tenant.is_active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <ModulesToggle
-                tenantId={tenant.id}
-                initialModules={tenant.active_modules as string[]}
-              />
-            </div>
-          </div>
-        ))}
-
-        {(!tenants || tenants.length === 0) && (
-          <div className="text-center py-12 bg-white rounded-lg border border-dashed">
-            <p className="text-gray-500">No hay colegios registrados aún.</p>
-          </div>
-        )}
-      </div>
-    </div>
+    <SuperadminDashboardClient initialTenants={tenants} initialStats={stats} />
   );
 }
