@@ -87,10 +87,12 @@ export function getTenantFromHeaders(): ResolvedTenant {
   const tenantId = headersList.get('x-tenant-id');
   const tenantSlug = headersList.get('x-tenant-slug');
   const isCustomDomainStr = headersList.get('x-tenant-custom-domain');
-  const tenantName = headersList.get('x-tenant-name');
+  const tenantNameRaw = headersList.get('x-tenant-name');
+  const tenantName = tenantNameRaw ? decodeURIComponent(tenantNameRaw) : '';
   const primaryColor = headersList.get('x-tenant-primary-color') || '#1E40AF';
   const secondaryColor = headersList.get('x-tenant-secondary-color') || '#F59E0B';
-  const logoUrl = headersList.get('x-tenant-logo-url');
+  const logoUrlRaw = headersList.get('x-tenant-logo-url');
+  const logoUrl = logoUrlRaw ? decodeURIComponent(logoUrlRaw) : null;
 
   if (!tenantId) {
     return { tenant: null, isCustomDomain: false, slug: null };

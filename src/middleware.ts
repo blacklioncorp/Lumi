@@ -76,12 +76,12 @@ export async function middleware(request: NextRequest) {
   if (tenant) {
     requestHeaders.set('x-tenant-id', tenant.id);
     requestHeaders.set('x-tenant-slug', tenant.slug);
-    requestHeaders.set('x-tenant-name', tenant.name);
+    requestHeaders.set('x-tenant-name', encodeURIComponent(tenant.name));
     requestHeaders.set('x-tenant-custom-domain', isCustomDomain ? 'true' : 'false');
     requestHeaders.set('x-tenant-primary-color', tenant.primary_color);
     requestHeaders.set('x-tenant-secondary-color', tenant.secondary_color);
     if (tenant.logo_url) {
-      requestHeaders.set('x-tenant-logo-url', tenant.logo_url);
+      requestHeaders.set('x-tenant-logo-url', encodeURIComponent(tenant.logo_url));
     }
 
     // A. Rutas de Login

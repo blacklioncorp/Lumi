@@ -19,9 +19,9 @@ export default async function TenantPublicPage() {
   // Leer la configuración del tenant inyectada por el middleware
   const config: TenantConfig = {
     id:              headersList.get('x-tenant-id')      || '',
-    name:            headersList.get('x-tenant-name')    || 'Colegio',
+    name:            headersList.get('x-tenant-name') ? decodeURIComponent(headersList.get('x-tenant-name')!) : 'Colegio',
     slug:            headersList.get('x-tenant-slug')    || '',
-    logo_url:        headersList.get('x-tenant-logo-url') || null,
+    logo_url:        headersList.get('x-tenant-logo-url') ? decodeURIComponent(headersList.get('x-tenant-logo-url')!) : null,
     primary_color:   headersList.get('x-tenant-primary-color')   || '#1E40AF',
     secondary_color: headersList.get('x-tenant-secondary-color') || '#F59E0B',
     active_modules:  [],   // se carga desde Supabase
