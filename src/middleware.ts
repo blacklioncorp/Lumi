@@ -111,12 +111,14 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // B. Protección de Rutas Internas del Tenant
-    const isDashboard = pathWithoutSlug.startsWith('/dashboard') || 
-                        pathWithoutSlug.startsWith('/tours') || 
-                        pathWithoutSlug.startsWith('/leads') || 
-                        pathWithoutSlug.startsWith('/students') || 
-                        pathWithoutSlug.startsWith('/content');
+    const isDashboard = 
+      pathWithoutSlug.startsWith('/dashboard') ||
+      pathWithoutSlug.startsWith('/leads') ||
+      pathWithoutSlug.startsWith('/students') ||
+      pathWithoutSlug.startsWith('/content') ||
+      pathWithoutSlug.startsWith('/tours') ||
+      pathWithoutSlug.startsWith('/settings') ||
+      pathWithoutSlug.startsWith('/social');
     const isPortal = pathWithoutSlug.startsWith('/portal');
 
     if (isDashboard || isPortal) {

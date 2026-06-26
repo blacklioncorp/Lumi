@@ -6,13 +6,15 @@ import Link from 'next/link';
 
 export default async function DashboardLayout({
   children,
-  params: _params,
+  params,
 }: {
   children: React.ReactNode;
   params: { tenant_slug: string };
 }) {
   const { tenant, isCustomDomain } = getTenantFromHeaders();
   if (!tenant) return redirect('/');
+
+  const tenantSlug = params?.tenant_slug || tenant.slug;
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -31,7 +33,7 @@ export default async function DashboardLayout({
   const userRole = profile?.role || 'parent';
   const fullName = profile?.full_name || user.email?.split('@')[0] || 'Usuario';
 
-  const prefix = isCustomDomain ? '' : `/${tenant.slug}`;
+  const prefix = isCustomDomain ? '' : `/${tenantSlug}`;
 
   // Navigation items based on role
   const navItems = [
