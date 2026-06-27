@@ -19,7 +19,9 @@ export type BlockType =
   | 'pricing'
   | 'map'
   | 'form'
-  | 'custom';
+  | 'custom'
+  | 'education_levels'
+  | 'schedule';
 export type PageSlug =
   | 'home'
   | 'about'
@@ -139,6 +141,37 @@ export interface SocialPost {
   updated_at: string;
 }
 
+export type PostType =
+  | 'announcement'
+  | 'event'
+  | 'achievement'
+  | 'video_youtube'
+  | 'video_tiktok'
+  | 'reel_instagram'
+  | 'gallery_post';
+
+export interface InstitutionalPost {
+  id: string;
+  tenant_id: string;
+  title: string;
+  content: string | null;
+  post_type: PostType;
+  media_url: string | null;
+  thumbnail_url: string | null;
+  images: string[] | null;
+  embed_code: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  tags: string[] | null;
+  is_pinned: boolean;
+  published: boolean;
+  published_at: string | null;
+  scheduled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Database schema representation for Supabase types
 export interface Database {
   public: {
@@ -205,6 +238,15 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<SocialPost>;
+      };
+      institutional_posts: {
+        Row: InstitutionalPost;
+        Insert: Omit<InstitutionalPost, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<InstitutionalPost>;
       };
     };
     Views: {};

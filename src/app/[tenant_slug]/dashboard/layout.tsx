@@ -46,6 +46,7 @@ export default async function DashboardLayout({
   // Editors and admins can manage content blocks
   if (userRole === 'school_admin' || userRole === 'editor' || userRole === 'superadmin') {
     navItems.push({ name: 'Contenido', href: `${prefix}/dashboard/content`, icon: '🌐' });
+    navItems.push({ name: 'Feed', href: `${prefix}/dashboard/feed`, icon: '📢' });
   }
 
   // Only admins can see school branding settings

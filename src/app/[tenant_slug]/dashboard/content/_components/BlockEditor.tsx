@@ -7,6 +7,8 @@ import StatsEditor from './block-editors/StatsEditor';
 import TestimonialsEditor from './block-editors/TestimonialsEditor';
 import GalleryEditor from './block-editors/GalleryEditor';
 import ContactEditor from './block-editors/ContactEditor';
+import EducationLevelsEditor from './block-editors/EducationLevelsEditor';
+import ScheduleEditor from './block-editors/ScheduleEditor';
 import GeneralEditor from './block-editors/GeneralEditor';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -67,8 +69,35 @@ export default function BlockEditor({
             tenantId={tenantId}
           />
         );
+      case 'education_levels':
+        return (
+          <EducationLevelsEditor
+            data={block.data}
+            onChange={onChange}
+            tenantId={tenantId}
+          />
+        );
+      case 'schedule':
+        return (
+          <ScheduleEditor
+            data={block.data}
+            onChange={onChange}
+            tenantId={tenantId}
+          />
+        );
       default:
-        // Editor genérico para why_us, education_levels, custom, etc.
+        // Si custom block es education_levels, usar el editor específico
+        if (block.block_type === 'custom' && block.data?.section === 'levels') {
+          return (
+            <EducationLevelsEditor
+              data={block.data}
+              onChange={onChange}
+              tenantId={tenantId}
+            />
+          );
+        }
+
+        // Editor genérico para why_us, custom genérico, etc.
         return (
           <GeneralEditor
             data={block.data}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import Link from 'next/link';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -8,6 +9,7 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  onActionHref?: string;
 }
 
 export default function EmptyState({
@@ -16,6 +18,7 @@ export default function EmptyState({
   description,
   actionLabel,
   onAction,
+  onActionHref,
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border rounded-xl bg-card">
@@ -25,11 +28,15 @@ export default function EmptyState({
       <h3 className="text-xl font-bold text-foreground mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground max-w-md mb-6">{description}</p>
       
-      {actionLabel && onAction && (
+      {actionLabel && onActionHref ? (
+        <Link href={onActionHref} className={buttonVariants({ variant: 'default' })}>
+          {actionLabel}
+        </Link>
+      ) : actionLabel && onAction ? (
         <Button onClick={onAction} className="shadow-sm">
           {actionLabel}
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

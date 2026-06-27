@@ -49,24 +49,22 @@ export default function HeroSection({ config, blocks }: LandingComponentProps) {
         />
       )}
 
-      {/* Overlay oscuro para contraste de texto */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+      {/* Overlay oscuro sobre el fondo con opacidad 0.55 */}
+      <div className="absolute inset-0 bg-black/55 z-0" />
 
       {/* Contenido */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center flex flex-col items-center gap-6 pt-16">
 
-        {/* Badge de admisiones */}
-        {showAdmissions && (
-          <motion.div {...fadeUp(0)}>
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-white/15 backdrop-blur-sm text-white border border-white/25">
-              <span
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: config.secondary_color }}
-              />
-              Inscripciones abiertas ciclo 2025-2026
-            </span>
-          </motion.div>
-        )}
+        {/* Badge superior */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-sm font-medium text-white mb-6 border border-white/30"
+        >
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          Inscripciones Abiertas 2025-2026
+        </motion.div>
 
         {/* H1 */}
         <motion.h1

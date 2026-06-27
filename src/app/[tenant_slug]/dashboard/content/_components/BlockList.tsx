@@ -6,6 +6,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -26,6 +27,7 @@ import {
   GraduationCap,
   Award,
   Code,
+  Clock,
 } from 'lucide-react';
 import { ContentBlock } from '@/types/database';
 import BlockCard from './BlockCard';
@@ -43,6 +45,7 @@ import {
 const AVAILABLE_BLOCK_TYPES = [
   { type: 'hero', label: 'Encabezado (Hero)', desc: 'Banner principal con título y llamada a la acción.', icon: LayoutTemplate },
   { type: 'stats', label: 'Estadísticas', desc: 'Métricas numéricas claves en columnas.', icon: BarChart3 },
+  { type: 'schedule', label: 'Un Día en el Colegio', desc: 'Horarios, Modalidad y Actividades.', icon: Clock },
   { type: 'education_levels', label: 'Niveles Educativos', desc: 'Maternal, Preescolar, Primaria, etc.', icon: GraduationCap },
   { type: 'why_us', label: '¿Por qué elegirnos?', desc: 'Puntos clave sobre el valor del colegio.', icon: Award },
   { type: 'gallery', label: 'Galería de Fotos', desc: 'Grid de imágenes destacadas.', icon: Image },
@@ -79,6 +82,12 @@ export default function BlockList({
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // evita drag accidental al hacer click en el grip
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {

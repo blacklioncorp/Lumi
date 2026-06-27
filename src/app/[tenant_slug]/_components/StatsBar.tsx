@@ -40,7 +40,7 @@ function StatItem({ stat, active }: { stat: Stat; active: boolean }) {
       <span className="text-4xl sm:text-5xl font-extrabold text-white tabular-nums">
         {count}{stat.suffix ?? '+'}
       </span>
-      <span className="text-sm text-white/70 text-center font-medium leading-tight max-w-[120px]">
+      <span className="text-sm text-slate-400 text-center font-medium leading-tight max-w-[120px]">
         {stat.label}
       </span>
     </div>
@@ -68,11 +68,10 @@ export default function StatsBar({ config, blocks }: LandingComponentProps) {
     <section
       id="stats"
       ref={ref}
-      className="py-16"
-      style={{ backgroundColor: config.primary_color }}
+      className="py-16 bg-slate-900"
     >
       <div className="max-w-5xl mx-auto px-4">
-        <div className="flex flex-col sm:flex-row items-center justify-center divide-y sm:divide-y-0 sm:divide-x divide-white/20 gap-8 sm:gap-0">
+        <div className="flex flex-col sm:flex-row items-center justify-center divide-y sm:divide-y-0 sm:divide-x divide-slate-700 gap-8 sm:gap-0">
           {stats.map((stat, i) => (
             <StatItem key={i} stat={stat} active={active} />
           ))}

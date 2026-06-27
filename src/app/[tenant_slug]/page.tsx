@@ -10,8 +10,10 @@ export const dynamic = 'force-dynamic';
 import Navbar from './_components/Navbar';
 import HeroSection from './_components/HeroSection';
 import StatsBar from './_components/StatsBar';
+import ScheduleSection from './_components/ScheduleSection';
 import EducationLevels from './_components/EducationLevels';
 import WhyUs from './_components/WhyUs';
+import InstitutionalFeed from './_components/InstitutionalFeed';
 import Gallery from './_components/Gallery';
 import Testimonials from './_components/Testimonials';
 import LeadForm from './_components/LeadForm';
@@ -65,8 +67,10 @@ export default async function TenantPublicPage() {
       <Navbar config={config} blocks={blocks} />
       <HeroSection config={config} blocks={blocks} />
       <StatsBar config={config} blocks={blocks} />
+      <ScheduleSection config={config} blocks={blocks} />
       <EducationLevels config={config} blocks={blocks} />
       <WhyUs config={config} blocks={blocks} />
+      <InstitutionalFeed config={config} blocks={blocks} />
       <Gallery config={config} blocks={blocks} />
       <Testimonials config={config} blocks={blocks} />
       <LeadForm config={config} blocks={blocks} />
