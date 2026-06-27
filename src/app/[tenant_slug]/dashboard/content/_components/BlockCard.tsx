@@ -72,10 +72,11 @@ export default function BlockCard({
   } = useSortable({ id: block.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 'auto',
     opacity: isDragging ? 0.6 : 1,
+    touchAction: 'none',
   };
 
   // Resolver ícono y nombre dinámicamente según sub-sección en custom o tipo de bloque

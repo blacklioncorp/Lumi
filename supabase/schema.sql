@@ -439,3 +439,46 @@ ON CONFLICT (slug) DO NOTHING;
 --  → Activar "Custom Access Token Hook"
 --  → Seleccionar: public.custom_access_token_hook
 -- =============================================================================
+
+-- ========================================================
+-- 9. Tenant Integrations
+-- ========================================================
+CREATE TABLE IF NOT EXISTS public.tenant_integrations (
+  id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id       uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE UNIQUE,
+  whatsapp_number text,
+  whatsapp_message_template text,
+  google_calendar_token text,      -- encriptado
+  google_calendar_email text,
+  facebook_url    text,
+  instagram_url   text,
+  tiktok_url      text,
+  youtube_url     text,
+  created_at      timestamptz NOT NULL DEFAULT NOW(),
+  updated_at      timestamptz NOT NULL DEFAULT NOW()
+);
+
+-- RLS: solo school_admin y superadmin de ese tenant
+ALTER TABLE public.tenant_integrations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "tenant_integrations_select_admin" ON public.tenant_integrations
+  FOR SELECT
+  USING (
+    tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) IN ('school_admin', 'superadmin')
+  );
+
+CREATE POLICY "tenant_integrations_insert_admin" ON public.tenant_integrations
+  FOR INSERT
+  WITH CHECK (
+    tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) IN ('school_admin', 'superadmin')
+  );
+
+CREATE POLICY "tenant_integrations_update_admin" ON public.tenant_integrations
+  FOR UPDATE
+  USING (
+    tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) IN ('school_admin', 'superadmin')
+  );
+

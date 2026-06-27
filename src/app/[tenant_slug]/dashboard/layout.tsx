@@ -51,6 +51,7 @@ export default async function DashboardLayout({
   // Only admins can see school branding settings
   if (userRole === 'school_admin' || userRole === 'superadmin') {
     navItems.push({ name: 'Configuración', href: `${prefix}/dashboard/settings`, icon: '⚙️' });
+    navItems.push({ name: 'Integraciones', href: `${prefix}/dashboard/settings/integrations`, icon: '🔗' });
   }
 
   return (

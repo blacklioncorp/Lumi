@@ -2,18 +2,28 @@ import React from 'react';
 import { getTenantFromHeaders } from '@/lib/tenant';
 import { createClient } from '@/lib/supabase/server';
 import { Tour } from '@/types/database';
+import EmptyState from '@/components/EmptyState';
+import { Calendar } from 'lucide-react';
 
 export default async function DashboardToursPage() {
   const { tenant } = getTenantFromHeaders();
   if (!tenant) return null;
 
   const supabase = createClient();
-  let tours: Tour[] = [];
+  let tours: any[] = [];
 
   try {
     const { data, error } = await supabase
       .from('tours')
-      .select('*')
+      .select(`
+        *,
+        leads (
+          full_name,
+          whatsapp,
+          email
+        )
+      `)
+      .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true });
 
     if (!error && data) {
@@ -22,30 +32,6 @@ export default async function DashboardToursPage() {
   } catch (err) {
     console.error('Failed to load tours:', err);
   }
-
-  // Fallback mock data if DB is empty
-  const displayTours = tours.length > 0 ? tours : [
-    {
-      id: '1',
-      tenant_id: tenant.id,
-      lead_id: '1',
-      scheduled_at: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-      duration_minutes: 60,
-      google_event_id: 'g_event_abc123',
-      status: 'scheduled',
-      notes: 'Visita guiada para preescolar y primaria. Mostrar alberca y laboratorios.',
-    },
-    {
-      id: '2',
-      tenant_id: tenant.id,
-      lead_id: '2',
-      scheduled_at: new Date(Date.now() + 172800000).toISOString(), // Day after tomorrow
-      duration_minutes: 45,
-      google_event_id: 'g_event_xyz789',
-      status: 'scheduled',
-      notes: 'Plática con coordinación académica de secundaria.',
-    }
-  ] as unknown as Tour[];
 
   return (
     <div className="space-y-6">
@@ -72,46 +58,60 @@ export default async function DashboardToursPage() {
         <span className="text-muted-foreground">Última sincronización: hace 5 minutos</span>
       </div>
 
-      {/* Tours List */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {displayTours.map((tour) => (
-          <div key={tour.id} className="bg-card border border-border p-6 rounded-xl shadow-sm space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-start justify-between">
-                <span className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
-                  ⏱ {tour.duration_minutes} Minutos
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 capitalize">
-                  {tour.status}
-                </span>
+      {/* Tours List or Empty State */}
+      {tours.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title="No tienes visitas programadas"
+          description="Aún no hay ningún tour escolar programado para el futuro."
+          actionLabel="Programar primera visita"
+          onAction={undefined} // Add action in a client component or use link
+        />
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          {tours.map((tour) => (
+            <div key={tour.id} className="bg-card border border-border p-6 rounded-xl shadow-sm space-y-4 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between">
+                  <span className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+                    ⏱ {tour.duration_minutes} Minutos
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 capitalize">
+                    {tour.status}
+                  </span>
+                </div>
+                <h3 className="font-bold text-lg">Visita: {tour.leads?.full_name || 'Prospecto'}</h3>
+                <p className="text-xs text-muted-foreground">
+                  📅 {new Date(tour.scheduled_at).toLocaleString('es-MX', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                   {tour.leads?.email && <p>📧 {tour.leads.email}</p>}
+                   {tour.leads?.whatsapp && <p>📱 {tour.leads.whatsapp}</p>}
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground mt-2">
+                  {tour.notes || 'Sin especificaciones.'}
+                </p>
               </div>
-              <h3 className="font-bold text-lg">Visita de Prospecto</h3>
-              <p className="text-xs text-muted-foreground">
-                📅 {new Date(tour.scheduled_at).toLocaleString('es-MX', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
-              <p className="text-sm leading-relaxed text-muted-foreground mt-2">
-                {tour.notes || 'Sin especificaciones.'}
-              </p>
-            </div>
 
-            <div className="border-t border-border pt-4 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Google ID: <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{tour.google_event_id || 'N/A'}</code>
-              </span>
-              <button className="font-semibold text-primary hover:underline">
-                Reagendar
-              </button>
+              <div className="border-t border-border pt-4 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Google ID: <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{tour.google_event_id || 'N/A'}</code>
+                </span>
+                <button className="font-semibold text-primary hover:underline">
+                  Reagendar
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

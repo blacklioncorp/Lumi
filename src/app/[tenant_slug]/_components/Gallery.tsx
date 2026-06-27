@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
 import { X, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import { LandingComponentProps } from '@/types/tenant';
 import { ContentBlock } from '@/types/database';
@@ -27,7 +26,19 @@ export default function Gallery({ config, blocks }: LandingComponentProps) {
   const [showAll, setShowAll] = useState(false);
 
   const galleryBlock = blocks.find((b: ContentBlock) => b.block_type === 'gallery');
-  const images: GalleryImage[] = (galleryBlock?.data?.images as GalleryImage[] | undefined) ?? [];
+
+  // Normalizar: GalleryEditor guarda string[], pero puede venir {url,alt}[]
+  // Soportamos ambos formatos para máxima compatibilidad
+  const rawImages: unknown[] = Array.isArray(galleryBlock?.data?.images)
+    ? (galleryBlock.data.images as unknown[])
+    : [];
+
+  const images: GalleryImage[] = rawImages.map((item) => {
+    if (typeof item === 'string') return { url: item };
+    if (item && typeof item === 'object' && 'url' in item) return item as GalleryImage;
+    return { url: '' };
+  }).filter((img) => img.url);
+
   const hasImages = images.length > 0;
 
   // Máximo 12; si showAll = false, mostrar solo 6
@@ -85,12 +96,11 @@ export default function Gallery({ config, blocks }: LandingComponentProps) {
                 onClick={() => hasImages && setLightboxIndex(i)}
               >
                 {image?.url ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={image.url}
                     alt={image.alt ?? `Instalaciones ${config.name} ${i + 1}`}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
                   // Placeholder elegante
@@ -139,11 +149,10 @@ export default function Gallery({ config, blocks }: LandingComponentProps) {
               onClick={(e) => e.stopPropagation()}
             >
               {images[lightboxIndex]?.url && (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={images[lightboxIndex].url}
                   alt={images[lightboxIndex].alt ?? ''}
-                  width={1200}
-                  height={800}
                   className="rounded-xl object-contain max-h-[80vh] w-full"
                 />
               )}

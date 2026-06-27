@@ -9,6 +9,10 @@ const nextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
       {
+        protocol: 'https',
+        hostname: 'kttrqmudwjiconiwiiqi.supabase.co',
+      },
+      {
         // Supabase Storage legacy
         protocol: 'https',
         hostname: '**.supabase.in',
