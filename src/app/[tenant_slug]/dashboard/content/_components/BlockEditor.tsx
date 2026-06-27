@@ -9,6 +9,7 @@ import GalleryEditor from './block-editors/GalleryEditor';
 import ContactEditor from './block-editors/ContactEditor';
 import EducationLevelsEditor from './block-editors/EducationLevelsEditor';
 import ScheduleEditor from './block-editors/ScheduleEditor';
+import WhyUsEditor from './block-editors/WhyUsEditor';
 import GeneralEditor from './block-editors/GeneralEditor';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -85,11 +86,29 @@ export default function BlockEditor({
             tenantId={tenantId}
           />
         );
+      case 'why_us':
+        return (
+          <WhyUsEditor
+            data={block.data}
+            onChange={onChange}
+            tenantId={tenantId}
+          />
+        );
       default:
         // Si custom block es education_levels, usar el editor específico
         if (block.block_type === 'custom' && block.data?.section === 'levels') {
           return (
             <EducationLevelsEditor
+              data={block.data}
+              onChange={onChange}
+              tenantId={tenantId}
+            />
+          );
+        }
+        
+        if (block.block_type === 'custom' && block.data?.section === 'why_us') {
+          return (
+            <WhyUsEditor
               data={block.data}
               onChange={onChange}
               tenantId={tenantId}

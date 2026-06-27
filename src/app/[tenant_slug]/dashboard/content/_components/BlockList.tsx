@@ -81,7 +81,7 @@ export default function BlockList({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // evita drag accidental al hacer click en el grip
+        distance: 5,
       },
     }),
     useSensor(TouchSensor, {
@@ -173,6 +173,7 @@ export default function BlockList({
         </div>
       ) : (
         <DndContext
+          id="cms-dnd-context"
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}

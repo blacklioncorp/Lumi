@@ -21,7 +21,8 @@ export type BlockType =
   | 'form'
   | 'custom'
   | 'education_levels'
-  | 'schedule';
+  | 'schedule'
+  | 'why_us';
 export type PageSlug =
   | 'home'
   | 'about'
@@ -145,6 +146,11 @@ export type PostType =
   | 'announcement'
   | 'event'
   | 'achievement'
+  | 'news'
+  | 'instagram'
+  | 'facebook'
+  | 'youtube'
+  | 'tiktok'
   | 'video_youtube'
   | 'video_tiktok'
   | 'reel_instagram'

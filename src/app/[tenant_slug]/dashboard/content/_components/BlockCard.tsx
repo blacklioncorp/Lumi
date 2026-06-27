@@ -72,11 +72,10 @@ export default function BlockCard({
   } = useSortable({ id: block.id });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
+    transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 'auto',
     opacity: isDragging ? 0.6 : 1,
-    touchAction: 'none',
   };
 
   // Resolver ícono y nombre dinámicamente según sub-sección en custom o tipo de bloque
@@ -130,6 +129,7 @@ export default function BlockCard({
         <div
           {...attributes}
           {...listeners}
+          style={{ touchAction: 'none' }}
           className="cursor-grab text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted active:cursor-grabbing"
         >
           <GripVertical className="w-4 h-4" />

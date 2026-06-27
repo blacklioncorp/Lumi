@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, HeartHandshake, Users } from 'lucide-react';
+import { Trophy, HeartHandshake, Users, Languages, Laptop, Star, Shield, BookOpen, Globe, Award } from 'lucide-react';
 import { LandingComponentProps } from '@/types/tenant';
 import { ContentBlock } from '@/types/database';
 
@@ -13,9 +13,15 @@ interface WhyUsItem {
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  trophy:       Trophy,
-  hearthandshake: HeartHandshake,
-  users:        Users,
+  languages: Languages,
+  trophy: Trophy,
+  laptop: Laptop,
+  star: Star,
+  shield: Shield,
+  users: Users,
+  heart: HeartHandshake,
+  'book-open': BookOpen,
+  globe: Globe,
 };
 
 const DEFAULT_ITEMS: WhyUsItem[] = [
@@ -41,7 +47,7 @@ export default function WhyUs({ config, blocks }: LandingComponentProps) {
   const [visible, setVisible] = useState(false);
 
   const whyBlock = blocks.find((b: ContentBlock) => b.block_type === 'custom' && b.data?.section === 'why_us');
-  const items: WhyUsItem[] = (whyBlock?.data?.items as WhyUsItem[] | undefined) ?? DEFAULT_ITEMS;
+  const items: WhyUsItem[] = (whyBlock?.data?.points as WhyUsItem[] | undefined) ?? DEFAULT_ITEMS;
   const title   = (whyBlock?.data?.title as string | undefined) ?? '¿Por qué elegirnos?';
   const subtitle = (whyBlock?.data?.subtitle as string | undefined) ?? 'Más de tres décadas construyendo futuros brillantes con un enfoque que va más allá de las aulas.';
 
