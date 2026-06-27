@@ -48,15 +48,35 @@ export const PATCH = withTenantGuard(async (request, _context) => {
     );
   }
 
-  // 2. Ejecutar las actualizaciones en paralelo (o secuencialmente)
-  const updatePromises = blockUpdates.map((block) =>
+  // 2. Ejecutar las actualizaciones en dos fases para evitar violar el constraint unique (tenant_id, page, order_index).
+  // Fase 1: Asignar un order_index temporal negativo.
+  const phase1Promises = blockUpdates.map((block) =>
+    (supabase as any)
+      .from('content_blocks')
+      .update({ order_index: -(block.order_index + 10000) }) // Temporal
+      .eq('id', block.id)
+  );
+
+  const phase1Results = await Promise.all(phase1Promises);
+  const failedPhase1 = phase1Results.find((r) => r.error);
+
+  if (failedPhase1) {
+    console.error('Error durante la reordenación (fase 1):', failedPhase1.error);
+    return NextResponse.json(
+      { error: 'Fallo al preparar el reordenamiento de los bloques.' },
+      { status: 500 }
+    );
+  }
+
+  // Fase 2: Asignar el order_index definitivo.
+  const phase2Promises = blockUpdates.map((block) =>
     (supabase as any)
       .from('content_blocks')
       .update({ order_index: block.order_index, updated_at: new Date().toISOString() })
       .eq('id', block.id)
   );
 
-  const results = await Promise.all(updatePromises);
+  const results = await Promise.all(phase2Promises);
   const failedUpdate = results.find((r) => r.error);
 
   if (failedUpdate) {
