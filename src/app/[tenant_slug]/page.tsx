@@ -65,16 +65,52 @@ export default async function TenantPublicPage() {
   return (
     <main className="min-h-screen">
       <Navbar config={config} blocks={blocks} />
-      <HeroSection config={config} blocks={blocks} />
-      <StatsBar config={config} blocks={blocks} />
-      <ScheduleSection config={config} blocks={blocks} />
-      <EducationLevels config={config} blocks={blocks} />
-      <WhyUs config={config} blocks={blocks} />
-      <InstitutionalFeed config={config} blocks={blocks} />
-      <Gallery config={config} blocks={blocks} />
-      <Testimonials config={config} blocks={blocks} />
-      <LeadForm config={config} blocks={blocks} />
-      <LocationSection config={config} blocks={blocks} />
+      {blocks.length === 0 ? (
+        <>
+          <HeroSection config={config} blocks={blocks} />
+          <StatsBar config={config} blocks={blocks} />
+          <ScheduleSection config={config} blocks={blocks} />
+          <EducationLevels config={config} blocks={blocks} />
+          <WhyUs config={config} blocks={blocks} />
+          <InstitutionalFeed config={config} blocks={blocks} />
+          <Gallery config={config} blocks={blocks} />
+          <Testimonials config={config} blocks={blocks} />
+          <LeadForm config={config} blocks={blocks} />
+          <LocationSection config={config} blocks={blocks} />
+        </>
+      ) : (
+        <>
+          {blocks.map((block) => {
+            switch (block.block_type) {
+              case 'hero':
+                return <HeroSection key={block.id} config={config} blocks={[block]} />;
+              case 'stats':
+                return <StatsBar key={block.id} config={config} blocks={[block]} />;
+              case 'schedule':
+                return <ScheduleSection key={block.id} config={config} blocks={[block]} />;
+              case 'education_levels':
+                return <EducationLevels key={block.id} config={config} blocks={[block]} />;
+              case 'why_us':
+                return <WhyUs key={block.id} config={config} blocks={[block]} />;
+              case 'gallery':
+                return <Gallery key={block.id} config={config} blocks={[block]} />;
+              case 'testimonial':
+                return <Testimonials key={block.id} config={config} blocks={[block]} />;
+              case 'map':
+                return <LocationSection key={block.id} config={config} blocks={[block]} />;
+              case 'custom':
+                if (block.data?.section === 'levels') return <EducationLevels key={block.id} config={config} blocks={[block]} />;
+                if (block.data?.section === 'why_us') return <WhyUs key={block.id} config={config} blocks={[block]} />;
+                return null;
+              default:
+                return null;
+            }
+          })}
+
+          <InstitutionalFeed config={config} blocks={blocks} />
+          <LeadForm config={config} blocks={blocks} />
+        </>
+      )}
       <Footer config={config} blocks={blocks} />
     </main>
   );
