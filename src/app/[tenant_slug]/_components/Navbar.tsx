@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { label: 'Ubicación',  href: '#ubicacion' },
 ];
 
-export default function Navbar({ config }: LandingComponentProps) {
+export default function Navbar({ config, hasInstitutionalContent }: LandingComponentProps & { hasInstitutionalContent?: boolean }) {
   const [scrolled, setScrolled]   = useState(false);
   const [menuOpen, setMenuOpen]   = useState(false);
 
@@ -29,6 +29,11 @@ export default function Navbar({ config }: LandingComponentProps) {
     const el = document.querySelector(id);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const dynamicNavLinks = [...NAV_LINKS];
+  if (hasInstitutionalContent) {
+    dynamicNavLinks.push({ label: 'Vida Escolar', href: '#vida-escolar' });
+  }
 
   return (
     <>
@@ -72,7 +77,7 @@ export default function Navbar({ config }: LandingComponentProps) {
 
           {/* Links desktop */}
           <ul className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map((l) => (
+            {dynamicNavLinks.map((l) => (
               <li key={l.href}>
                 <button
                   onClick={() => scrollTo(l.href)}
@@ -128,7 +133,7 @@ export default function Navbar({ config }: LandingComponentProps) {
               exit={{ x: '100%' }}
               transition={{ type: 'tween', ease: 'easeOut', duration: 0.28 }}
             >
-              {NAV_LINKS.map((l) => (
+              {dynamicNavLinks.map((l) => (
                 <button
                   key={l.href}
                   onClick={() => scrollTo(l.href)}

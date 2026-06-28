@@ -35,10 +35,10 @@ export default async function TenantPublicPage() {
     timezone:        'America/Mexico_City',
   };
 
-  // Un único fetch a Supabase para content_blocks + active_modules del tenant
+  // Un único fetch a Supabase para content_blocks + active_modules del tenant + initial posts
   const supabase = createClient();
 
-  const [blocksResult, tenantResult] = await Promise.all([
+  const [blocksResult, tenantResult, postsResult] = await Promise.all([
     supabase
       .from('content_blocks')
       .select('*')
@@ -51,9 +51,19 @@ export default async function TenantPublicPage() {
       .select('active_modules, timezone')
       .eq('id', config.id)
       .single(),
+    supabase
+      .from('institutional_posts')
+      .select('*')
+      .eq('tenant_id', config.id)
+      .eq('published', true)
+      .order('is_pinned', { ascending: false })
+      .order('published_at', { ascending: false })
+      .limit(6),
   ]);
 
   const blocks: ContentBlock[] = (blocksResult.data || []) as ContentBlock[];
+  const initialPosts = postsResult.data || [];
+  const hasPosts = initialPosts.length > 0;
 
   type TenantRow = { active_modules: string[]; timezone: string };
   const tenantRow = tenantResult.data as TenantRow | null;
@@ -64,7 +74,7 @@ export default async function TenantPublicPage() {
 
   return (
     <main className="min-h-screen">
-      <Navbar config={config} blocks={blocks} />
+      <Navbar config={config} blocks={blocks} hasInstitutionalContent={hasPosts} />
       {blocks.length === 0 ? (
         <>
           <HeroSection config={config} blocks={blocks} />
@@ -72,7 +82,7 @@ export default async function TenantPublicPage() {
           <ScheduleSection config={config} blocks={blocks} />
           <EducationLevels config={config} blocks={blocks} />
           <WhyUs config={config} blocks={blocks} />
-          <InstitutionalFeed config={config} blocks={blocks} />
+          {hasPosts && <InstitutionalFeed config={config} blocks={blocks} initialPosts={initialPosts as any} tenantSlug={config.slug} />}
           <Gallery config={config} blocks={blocks} />
           <Testimonials config={config} blocks={blocks} />
           <LeadForm config={config} blocks={blocks} />
@@ -107,7 +117,7 @@ export default async function TenantPublicPage() {
             }
           })}
 
-          <InstitutionalFeed config={config} blocks={blocks} />
+          {hasPosts && <InstitutionalFeed config={config} blocks={blocks} initialPosts={initialPosts as any} tenantSlug={config.slug} />}
           <LeadForm config={config} blocks={blocks} />
         </>
       )}

@@ -5,24 +5,63 @@ import { withTenantGuard } from '@/lib/auth';
 
 /**
  * GET /api/feed/posts
- * Lista todas las publicaciones del tenant
+ * Si tiene tenant_slug: público paginado. Sino, retorna lista admin usando withTenantGuard.
  */
-export const GET = withTenantGuard(async (request) => {
-  const tenantId = request.headers.get('x-tenant-id');
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const tenant_slug = searchParams.get('tenant_slug');
   const supabase = createAdminClient();
 
-  const { data, error } = await (supabase as any)
-    .from('institutional_posts')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false });
+  if (tenant_slug) {
+    const limit = parseInt(searchParams.get('limit') || '6', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const type = searchParams.get('type');
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: tenant, error: tenantError } = await (supabase as any)
+      .from('tenants')
+      .select('id')
+      .eq('slug', tenant_slug)
+      .single();
+
+    if (tenantError || !tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+
+    let query = (supabase as any)
+      .from('institutional_posts')
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', tenant.id)
+      .eq('published', true);
+
+    if (type) query = query.eq('post_type', type);
+
+    query = query
+      .order('is_pinned', { ascending: false })
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    const { data: posts, error, count } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const total = count || 0;
+    const hasMore = offset + (posts?.length || 0) < total;
+
+    return NextResponse.json({ posts: posts || [], total, hasMore });
   }
 
-  return NextResponse.json(data);
-});
+  // Admin access
+  const handler = withTenantGuard(async (req) => {
+    const tenantId = req.headers.get('x-tenant-id');
+    const { data, error } = await (supabase as any)
+      .from('institutional_posts')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  });
+
+  return handler(request, {});
+}
 
 /**
  * POST /api/feed/posts
